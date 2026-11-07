@@ -1,0 +1,63 @@
+---
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { slugOf, localePath } from '../i18n.js';
+import '@fontsource/cormorant-garamond/latin-300.css';
+import '@fontsource/cormorant-garamond/latin-400.css';
+import '@fontsource/cormorant-garamond/latin-500.css';
+import '@fontsource/cormorant-garamond/latin-600.css';
+import '@fontsource/cormorant-garamond/latin-700.css';
+import '@fontsource/cormorant-garamond/latin-300-italic.css';
+import '@fontsource/cormorant-garamond/latin-400-italic.css';
+import '@fontsource/cormorant-garamond/latin-500-italic.css';
+import '@fontsource/cormorant-garamond/latin-600-italic.css';
+import '@fontsource/inter/latin-300.css';
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-500.css';
+import '@fontsource/inter/latin-600.css';
+import '../styles/overrides.css';
+
+const { lang = 'en', title, description, ogTitle, ogDescription, noindex = false, chrome = true } = Astro.props;
+const site = 'https://www.caldrew.com';
+const slug = slugOf(Astro.url.pathname);
+const enUrl = site + localePath('en', slug);
+const ptUrl = site + localePath('pt', slug);
+const canonical = lang === 'pt' ? ptUrl : enUrl;
+const ogT = ogTitle || title;
+const ogD = ogDescription || description;
+---
+<!doctype html>
+<html lang={lang === 'pt' ? 'pt-PT' : 'en'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    {noindex ? <meta name="robots" content="noindex, nofollow" /> : <link rel="canonical" href={canonical} />}
+    <link rel="alternate" hreflang="x-default" href={enUrl} />
+    <link rel="alternate" hreflang="en" href={enUrl} />
+    <link rel="alternate" hreflang="pt-PT" href={ptUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={ogT} />
+    {ogD && <meta property="og:description" content={ogD} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={ogT} />
+    {ogD && <meta name="twitter:description" content={ogD} />}
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/css/caldrew.css" />
+    <script src="/js/site.js" defer></script>
+  </head>
+  <body>
+    {chrome ? (
+      <div class="cd-page">
+        <Nav lang={lang} slug={slug} />
+        <slot />
+        <Footer lang={lang} />
+      </div>
+    ) : <slot />}
+  </body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "caldrew-site",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    // Everything else is served as static files without running the Worker.
+    "run_worker_first": ["/api/*", "/press", "/press/*", "/press.html", "/pt/press", "/pt/press/*", "/pt/press.html"]
+  },
+  // Cloudflare Email Routing "send_email" binding. Can only deliver to verified addresses.
+  "send_email": [
+    { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" }
+  ],
+  "vars": {
+    "CONTACT_TO": "enquiries@caldrew.com",
+    // Must be an address on a domain with Email Routing enabled (see README).
+    "CONTACT_FROM": "website@notify.caldrew.com",
+    // Filled in after creating the Access application (see README).
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
+  },
+  "observability": { "enabled": true }
+  // Custom domains are attached at cutover (see README):
+  // "routes": [{ "pattern": "www.caldrew.com", "custom_domain": true }, { "pattern": "caldrew.com", "custom_domain": true }]
+}

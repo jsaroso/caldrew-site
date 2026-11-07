@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+---
+<Base lang="en" title="Caldrew | Contact" description="Contact Caldrew. Rua Castilho 32, Lisboa. We review approaches from founders, advisers and intermediaries.">
+<section class="cd-page-header"><div class="cd-container"><p class="cd-eyebrow">Contact</p><h1 class="cd-page-title">Start a conversation.</h1></div></section><section class="cd-numbered"><div class="cd-container"><div class="cd-contact-grid"><div><p class="cd-contact-label">Office</p><p class="cd-contact-detail">Caldrew, S.A.<br/>Rua Castilho, 32 - 4<br/>1250-070 Lisboa, Portugal</p><p class="cd-contact-label">Email</p><a href="mailto:enquiries@caldrew.com" class="cd-contact-email">enquiries@caldrew.com</a><p class="cd-contact-note">Caldrew reviews approaches from founders, advisers and intermediaries.</p></div><div><div class="w-form"><form method="post" action="/api/contact" data-contact>
+<input type="hidden" name="lang" value="en"/>
+<div class="cd-hp" aria-hidden="true"><label for="cd-website">Website</label><input id="cd-website" name="website" type="text" tabindex="-1" autocomplete="off"/></div>
+<div class="cd-field"><label for="cd-name" class="cd-field-label">Name</label><input class="cd-input w-input" maxlength="256" name="name" placeholder="Name" type="text" id="cd-name" autocomplete="name" required/></div>
+<div class="cd-field"><label for="cd-email" class="cd-field-label">Email</label><input class="cd-input w-input" maxlength="256" name="email" placeholder="Email" type="email" id="cd-email" autocomplete="email" required/></div>
+<div class="cd-field"><label for="cd-company" class="cd-field-label">Company</label><input class="cd-input w-input" maxlength="256" name="company" placeholder="Company" type="text" id="cd-company" autocomplete="organization"/></div>
+<div class="cd-field"><label for="cd-message" class="cd-field-label">Message</label><textarea required placeholder="Message" maxlength="5000" id="cd-message" name="message" class="cd-textarea w-input"></textarea></div>
+
+{siteKey && <div class="cf-turnstile cd-turnstile" data-sitekey={siteKey}></div>}
+{siteKey && <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>}
+<input type="submit" data-wait="Please wait..." class="cd-submit w-button" value="Send"/>
+</form><div class="w-form-done" role="status"><div>Thank you! Your submission has been received!</div></div><div class="w-form-fail" role="alert"><div>Oops! Something went wrong while submitting the form.</div></div></div></div></div></div></section>
+</Base>

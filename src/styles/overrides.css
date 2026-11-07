@@ -1,0 +1,28 @@
+/* Small additions on top of the original Webflow stylesheet (public/css/caldrew.css). */
+
+/* The language toggle is a <button> now (was a <div>), so reset button defaults. */
+button.cd-lang-toggle {
+  appearance: none;
+  margin: 0;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+/* Contact form honeypot: hidden from people, visible to bots. */
+.cd-hp {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.cd-turnstile { margin: 8px 0 20px; }
+
+/* Press facts: the email is a link now, keep it in the site's palette. */
+.cd-press-fact-value a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: #9c7a3a;
+  text-underline-offset: 3px;
+}

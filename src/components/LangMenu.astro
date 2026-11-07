@@ -1,0 +1,24 @@
+---
+import { localePath } from '../i18n.js';
+const { lang, slug, wrapperClass } = Astro.props;
+const items = [['en', 'en', 'English'], ['pt', 'pt-PT', 'Portuguese']];
+---
+<div class={`${wrapperClass} w-locales-list`}>
+  <div class="cd-lang w-dropdown" data-dropdown>
+    <button type="button" class="cd-lang-toggle w-dropdown-toggle" aria-haspopup="true" aria-expanded="false" aria-label="Language">
+      <span class="cd-lang-code">{lang}</span>
+      <div class="cd-lang-chevron w-icon-dropdown-toggle"></div>
+    </button>
+    <nav class="cd-lang-menu w-dropdown-list">
+      <div role="list" class="w-locales-items">
+        {items.map(([code, tag, label]) => (
+          <div role="listitem" class="w-locales-item">
+            <a hreflang={tag} href={localePath(code, slug)}
+               aria-current={code === lang ? 'page' : undefined}
+               class={`cd-lang-item${code === lang ? ' w--current' : ''}`}>{label}</a>
+          </div>
+        ))}
+      </div>
+    </nav>
+  </div>
+</div>

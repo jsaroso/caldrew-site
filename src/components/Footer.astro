@@ -1,0 +1,21 @@
+---
+import { t, localePath } from '../i18n.js';
+const { lang } = Astro.props;
+const s = t[lang];
+---
+<footer class="cd-footer">
+  <div class="cd-footer-inner">
+    <div class="cd-footer-top">
+      <div class="cd-footer-brand">
+        <span class="cd-footer-rule"></span>
+        <span class="cd-footer-text"><span class="cd-footer-wordmark-1">CALDREW</span><span class="cd-footer-sub">C A P I T A L</span></span>
+      </div>
+      <div class="cd-footer-legal">
+        {s.legal.map(([anchor, label]) => (
+          <a href={`${localePath(lang, 'legal')}#${anchor}`} class="cd-footer-link">{label}</a>
+        ))}
+      </div>
+    </div>
+    <div class="cd-footer-fine"><span>{s.registered}</span><span>{s.disclaimer}</span></div>
+  </div>
+</footer>

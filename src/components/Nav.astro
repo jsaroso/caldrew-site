@@ -1,0 +1,22 @@
+---
+import { t, localePath } from '../i18n.js';
+import LangMenu from './LangMenu.astro';
+const { lang, slug } = Astro.props;
+const s = t[lang];
+---
+<nav class="cd-nav navigation" id="caldrew-nav">
+  <div class="cd-nav-inner">
+    <a href={s.home} class={`cd-brand${slug === '' ? ' w--current' : ''}`} aria-current={slug === '' ? 'page' : undefined}>
+      <span class="cd-brand-rule"></span>
+      <span class="cd-brand-text"><span class="cd-wordmark-1">CALDREW</span><span class="cd-wordmark-sub">C A P I T A L</span></span>
+    </a>
+    <LangMenu lang={lang} slug={slug} wrapperClass="locales-dropdwn-mobile" />
+    <div class="cd-nav-links">
+      {s.nav.map(([key, label]) => (
+        <a href={localePath(lang, key)} class={`cd-nav-link${slug === key ? ' w--current' : ''}`} aria-current={slug === key ? 'page' : undefined}>{label}</a>
+      ))}
+      <span class="cd-lang-divider"></span>
+      <LangMenu lang={lang} slug={slug} wrapperClass="locales-dropdown-desktop" />
+    </div>
+  </div>
+</nav>
