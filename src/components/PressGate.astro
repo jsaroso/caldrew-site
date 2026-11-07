@@ -1,0 +1,56 @@
+---
+// Branded entry page for the private Press area (same layout as the old Webflow login page).
+// The Worker serves this at /press and /pt/press when the visitor is not signed in.
+const { lang = 'en' } = Astro.props;
+const pt = lang === 'pt';
+const c = pt
+  ? {
+      aside: 'Compramos e desenvolvemos empresas ibéricas com um horizonte de longo prazo.',
+      eyebrow: 'Área reservada',
+      title: 'Inicie sessão para continuar.',
+      lede: 'Esta área é reservada a imprensa e parceiros da Caldrew. No passo seguinte, introduza o seu email: se tiver acesso, enviamos-lhe um código de uso único.',
+      button: 'Continuar com email',
+      denied: 'Não foi possível iniciar sessão neste endereço. Tente novamente ou escreva para enquiries@caldrew.com.',
+      noAccess: 'Ainda não tem acesso?',
+      request: 'Peça acesso',
+      subject: 'Pedido de acesso à área de imprensa',
+      home: 'Voltar ao site',
+    }
+  : {
+      aside: 'We buy and build Iberian companies for the long term.',
+      eyebrow: 'Private area',
+      title: 'Sign in to continue.',
+      lede: 'This area is reserved for press and partners of Caldrew. On the next step, enter your email address: if you have access, we will send you a one-time code.',
+      button: 'Continue with email',
+      denied: 'Sign-in is not available at this address. Try again, or write to enquiries@caldrew.com.',
+      noAccess: 'No access yet?',
+      request: 'Request access',
+      subject: 'Press area access request',
+      home: 'Back to the website',
+    };
+const signin = pt ? '/press/signin?lang=pt' : '/press/signin';
+const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subject)}`;
+---
+<div class="cd-login-wrap">
+  <div class="cd-login-aside">
+    <a href={pt ? '/pt' : '/'}><img src="/images/caldrew-logo-cream.png" alt="Caldrew Capital" class="cd-login-aside-logo" /></a>
+    <h1 class="cd-login-aside-title">{c.aside}</h1>
+    <p class="cd-login-aside-note">Caldrew, S.A. Rua Castilho, 32 - 4, 1250-070 Lisboa</p>
+  </div>
+  <div class="cd-login-panel">
+    <div class="cd-login-form">
+      <p class="cd-login-eyebrow">{c.eyebrow}</p>
+      <h2 class="cd-login-title">{c.title}</h2>
+      <p class="cd-login-lede">{c.lede}</p>
+      <a href={signin} class="cd-login-button w-button cd-login-cta">{c.button}</a>
+      <div class="cd-login-error cd-login-denied" role="alert" hidden>{c.denied}</div>
+      <p class="cd-login-foot">{c.noAccess} <a href={mail}>{c.request}</a>.</p>
+      <p class="cd-login-foot cd-login-back"><a href={pt ? '/pt' : '/'}>{c.home}</a></p>
+    </div>
+  </div>
+</div>
+<script is:inline>
+  if (new URLSearchParams(location.search).has('denied')) {
+    document.querySelector('.cd-login-denied').hidden = false;
+  }
+</script>

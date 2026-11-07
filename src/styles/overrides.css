@@ -26,3 +26,19 @@ button.cd-lang-toggle {
   text-decoration-color: #9c7a3a;
   text-underline-offset: 3px;
 }
+
+/* Press sign-in page */
+.cd-login-cta {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.cd-login-foot a {
+  color: #354d73;
+  text-decoration: underline;
+  text-decoration-color: #9c7a3a;
+  text-underline-offset: 3px;
+}
+.cd-login-back { margin-top: 12px; }
+.cd-login-error[hidden] { display: none; }

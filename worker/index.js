@@ -2,7 +2,7 @@
 // Static pages are served straight from ./dist. The Worker only runs for the
 // routes listed in wrangler.jsonc (run_worker_first):
 //   - POST /api/contact  -> emails the contact form to enquiries@caldrew.com
-//   - /press, /pt/press  -> double-checks the Cloudflare Access token
+//   - /press, /pt/press  -> private press kit, behind Cloudflare Access (see README)
 import { EmailMessage } from 'cloudflare:email';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
@@ -15,48 +15,78 @@ export default {
       return handleContact(request, env);
     }
 
-    if (isPress(url.pathname)) {
-      const allowed = await hasValidAccessToken(request, env);
-      if (!allowed) return forbidden(url.pathname.startsWith('/pt'));
-      const res = await env.ASSETS.fetch(request);
-      const headers = new Headers(res.headers);
-      headers.set('Cache-Control', 'private, no-store');
-      headers.set('X-Robots-Tag', 'noindex, nofollow');
-      return new Response(res.body, { status: res.status, headers });
-    }
+    if (isPress(url.pathname)) return handlePress(request, env, url);
 
     return env.ASSETS.fetch(request);
   },
 };
 
 // ---------- Press: Cloudflare Access ----------
+//
+// Flow:
+//   /press            not signed in -> branded sign-in page (press-login.astro), status 401
+//   /press/signin     protected by Cloudflare Access at the edge. Access asks for the
+//                     visitor's email and sends a one-time code. Once through, the Worker
+//                     stores the Access token in a cookie and sends them back to /press.
+//   /press            signed in -> the press kit
+//   /press/signout    clears the cookie
+// Every token is verified against Cloudflare Access's public keys. If Access is not
+// configured, nobody gets in (fail closed).
+
+const COOKIE = 'caldrew_press';
 
 function isPress(path) {
-  return /^\/(pt\/)?press(\/|\.html)?$/.test(path) || /^\/(pt\/)?press\//.test(path);
+  return /^\/(pt\/)?press(\.html|\/.*)?$/.test(path);
+}
+
+async function handlePress(request, env, url) {
+  const pt = url.pathname.startsWith('/pt/') || url.searchParams.get('lang') === 'pt';
+  const home = pt ? '/pt/press' : '/press';
+
+  if (url.pathname === '/press/signin') {
+    const token = request.headers.get('Cf-Access-Jwt-Assertion');
+    const claims = token && (await verifyAccess(token, env));
+    if (!claims) return redirect(`${home}?denied=1`);
+    const maxAge = Math.max(0, claims.exp - Math.floor(Date.now() / 1000));
+    return redirect(home, `${COOKIE}=${token}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`);
+  }
+
+  if (url.pathname === '/press/signout') {
+    return redirect(pt ? '/pt' : '/', `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+  }
+
+  const token = request.headers.get('Cf-Access-Jwt-Assertion') || readCookie(request, COOKIE);
+  const signedIn = token && (await verifyAccess(token, env));
+  const page = signedIn ? home : pt ? '/pt/press-login' : '/press-login';
+  const res = await env.ASSETS.fetch(new Request(new URL(page, url), request));
+  const headers = new Headers(res.headers);
+  headers.set('Cache-Control', 'private, no-store');
+  headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return new Response(res.body, { status: signedIn ? res.status : 401, headers });
 }
 
 let jwks;
-async function hasValidAccessToken(request, env) {
-  // Fail closed: if Access is not configured, nobody gets in.
-  if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return false;
-  const token = request.headers.get('Cf-Access-Jwt-Assertion');
-  if (!token) return false;
+async function verifyAccess(token, env) {
+  if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return null;
   const issuer = `https://${env.ACCESS_TEAM_DOMAIN}`;
   jwks ??= createRemoteJWKSet(new URL(`${issuer}/cdn-cgi/access/certs`));
   try {
-    await jwtVerify(token, jwks, { issuer, audience: env.ACCESS_AUD });
-    return true;
+    const { payload } = await jwtVerify(token, jwks, { issuer, audience: env.ACCESS_AUD });
+    return payload;
   } catch {
-    return false;
+    return null;
   }
 }
 
-function forbidden(pt) {
-  const msg = pt
-    ? 'Esta área é reservada a imprensa e parceiros da Caldrew. Para pedir acesso, escreva para enquiries@caldrew.com.'
-    : 'This area is reserved for press and partners of Caldrew. To request access, write to enquiries@caldrew.com.';
-  const html = `<!doctype html><html lang="${pt ? 'pt-PT' : 'en'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Caldrew</title><body style="font-family:Georgia,serif;background:#F0EEE9;color:#213951;display:grid;place-items:center;min-height:100vh;margin:0;padding:24px"><p style="max-width:32em;font-size:20px;line-height:1.5">${msg}</p></body></html>`;
-  return new Response(html, { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+function readCookie(request, name) {
+  const m = (request.headers.get('Cookie') || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return m ? m[1] : null;
+}
+
+function redirect(location, cookie) {
+  const headers = new Headers({ Location: location, 'Cache-Control': 'no-store' });
+  if (cookie) headers.set('Set-Cookie', cookie);
+  return new Response(null, { status: 302, headers });
 }
 
 // ---------- Contact form ----------
