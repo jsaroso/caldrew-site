@@ -23,7 +23,26 @@
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUD": ""
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
+  // served at next.caldrew.com behind Cloudflare Access (see README).
+  "env": {
+    "staging": {
+      "name": "caldrew-site-staging",
+      "workers_dev": false,
+      "send_email": [
+        { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" }
+      ],
+      "vars": {
+        "STAGING": "1",
+        "CONTACT_TO": "enquiries@caldrew.com",
+        "CONTACT_FROM": "website@notify.caldrew.com",
+        "ACCESS_TEAM_DOMAIN": "",
+        "ACCESS_AUD": ""
+      },
+      "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
+    }
+  }
   // Custom domains are attached at cutover (see README):
   // "routes": [{ "pattern": "www.caldrew.com", "custom_domain": true }, { "pattern": "caldrew.com", "custom_domain": true }]
 }

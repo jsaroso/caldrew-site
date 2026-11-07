@@ -117,7 +117,7 @@ async function handleContact(request, env) {
     if (!ok) return json({ ok: false, error: 'captcha' }, 400);
   }
 
-  const subject = `Website enquiry: ${name}${company ? ` (${company})` : ''}`;
+  const subject = `${env.STAGING ? '[Staging] ' : ''}Website enquiry: ${name}${company ? ` (${company})` : ''}`;
   const body = [
     `Name: ${name}`,
     `Email: ${email}`,
