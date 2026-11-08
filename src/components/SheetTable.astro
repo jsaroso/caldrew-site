@@ -11,6 +11,7 @@
 //   filters:  headers offered as dropdown filters
 //   activeField: header used by the "with activity only" switch
 //   dateSort: headers sorted by the most recent d/m date in their text (e.g. a dated log)
+//   defaultSort: { col, dir } applied when the page opens (dir: 1 ascending, -1 descending)
 // Click a column header to sort; click again to reverse; a third click restores the sheet order.
 // Expanded row (one open at a time)
 //   timeline: header shown as a dated timeline on the left (one line = one step)
@@ -28,6 +29,7 @@ const {
   widths = {},
   activeField = null,
   dateSort = [],
+  defaultSort = null,
   timeline = null,
   groups = [],
   lists = [],
@@ -69,7 +71,7 @@ const t = pt
       sortHint: 'Sort',
     };
 const config = {
-  summary, lastLine, filters, numeric, widths, activeField, dateSort,
+  summary, lastLine, filters, numeric, widths, activeField, dateSort, defaultSort,
   timeline, lists, footer, hide, lang, t,
   groups: groups.map((g) => ({ title: g.title[lang] || g.title.en, fields: g.fields })),
 };
@@ -220,6 +222,14 @@ const config = {
 
     // Header
     var sortCol = null, sortDir = 0; // 0 = sheet order, 1 = ascending, -1 = descending
+    var markHeaders = function () {
+      root.querySelectorAll('thead th').forEach(function (h) {
+        var on = h.dataset.col === sortCol;
+        h.classList.toggle('is-sorted', on);
+        h.classList.toggle('is-desc', on && sortDir < 0);
+        h.setAttribute('aria-sort', on ? (sortDir > 0 ? 'ascending' : 'descending') : 'none');
+      });
+    };
     summary.forEach(function (c) {
       var th = el('th', has(cfg.numeric, c) ? 'is-num' : '');
       th.dataset.col = c;
@@ -236,17 +246,17 @@ const config = {
         if (sortCol !== c) { sortCol = c; sortDir = first; }
         else if (sortDir === first) sortDir = -first;
         else { sortCol = null; sortDir = 0; }
-        root.querySelectorAll('thead th').forEach(function (h) {
-          var on = h.dataset.col === sortCol;
-          h.classList.toggle('is-sorted', on);
-          h.classList.toggle('is-desc', on && sortDir < 0);
-          h.setAttribute('aria-sort', on ? (sortDir > 0 ? 'ascending' : 'descending') : 'none');
-        });
+        markHeaders();
         render();
       });
       th.appendChild(b);
       $('[data-head]').appendChild(th);
     });
+    if (cfg.defaultSort && has(summary, cfg.defaultSort.col)) {
+      sortCol = cfg.defaultSort.col;
+      sortDir = cfg.defaultSort.dir < 0 ? -1 : 1;
+      markHeaders();
+    }
 
     // Sort keys. Empty values always go last, whichever the direction.
     var latestDate = function (text) {
