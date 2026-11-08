@@ -69,7 +69,9 @@
         { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
         { "name": "MAIL_LIMITER", "namespace_id": "1004", "simple": { "limit": 3, "period": 60 } }
       ],
-      "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "53f99572246a422aa5b7758f5c842616" }],
+      // Reads the live reserved-area data so reviews use real content. Staging cannot write to it:
+      // it has no SYNC_SECRET (uploads are refused) and no cron (no digests).
+      "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "aa100a6b76a64eb1b2557b5ad73a7224" }],
       // No digest from staging, so the team only hears from production.
       "triggers": { "crons": [] },
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
