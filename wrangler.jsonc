@@ -3,6 +3,8 @@
   "name": "caldrew-site",
   "main": "worker/index.js",
   "compatibility_date": "2026-10-01",
+  // Lets the Worker import the logo image for the sign-in emails.
+  "rules": [{ "type": "Data", "globs": ["**/*.png"], "fallthrough": true }],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",

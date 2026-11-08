@@ -8,7 +8,7 @@ const c = r[lang];
 <div class="cd-rbar">
   <div class="cd-rbar-inner">
     <a href={c.base} class:list={['cd-rbar-home', { 'is-current': current === null }]}>{c.area}</a>
-    <nav class="cd-rbar-tabs" aria-label={c.area}>
+    <nav class="cd-rbar-tabs" aria-label={c.area} data-tabs>
       {SECTIONS.map((s) => (
         <a href={`${c.base}/${s}`} data-section={s} class:list={['cd-rbar-tab', { 'is-current': current === s }]} aria-current={current === s ? 'page' : undefined}>{c.sections[s].name}</a>
       ))}

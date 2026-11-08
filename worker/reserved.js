@@ -19,7 +19,7 @@
 // No database: links, codes and sessions are self-contained signed tokens.
 // Every sign-in and page view is logged (Workers Logs): who, what, when.
 import USERS from '../reserved-users.json';
-import { sendMail } from './mail.js';
+import { sendMail, LOGO_CID } from './mail.js';
 
 export const SECTIONS = ['press', 'fundraising', 'dealflow'];
 const SESSION = 'caldrew_reserved';
@@ -60,6 +60,8 @@ export async function handleReserved(request, env, url) {
     return page(env, url, `${base}/sign-in`, 401);
   }
   if (first === 'sign-in' || first === 'no-access') return redirect(base);
+  // One section only: skip the hub and open it directly.
+  if (!section && !isFile && sections.length === 1) return redirect(`${base}/${sections[0]}`);
   if (section && !SECTIONS.includes(section)) {
     const res = await env.ASSETS.fetch(new Request(new URL('/404', url)));
     return privateResponse(res, 404);
@@ -84,6 +86,12 @@ async function page(env, url, target, status, email, sections = []) {
     .on('[data-section]', {
       element(el) {
         if (!sections.includes(el.getAttribute('data-section'))) el.remove();
+      },
+    })
+    .on('[data-tabs]', {
+      element(el) {
+        // Tabs only make sense with more than one section.
+        if (sections.length < 2) el.remove();
       },
     })
     .on('[data-user-email]', {
@@ -198,7 +206,7 @@ function signInEmail(env, { to, lang, link, code }) {
   const html = `<!doctype html><html><body style="margin:0;padding:0;background:#F7F4EE">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F4EE"><tr><td align="center" style="padding:40px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px">
-<tr><td style="padding:0 0 32px;font-family:Georgia,'Times New Roman',serif;font-size:22px;letter-spacing:.3em;color:#354D73">CALDREW</td></tr>
+<tr><td style="padding:0 0 36px"><img src="cid:${LOGO_CID}" width="168" height="39" alt="Caldrew Capital" style="display:block;width:168px;height:auto;border:0;outline:none;color:#354D73;font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:.3em"></td></tr>
 <tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.7;color:#213951;padding:0 0 28px">${t.intro}</td></tr>
 <tr><td style="padding:0 0 32px"><a href="${link}" style="display:inline-block;background:#354D73;color:#F0EEE9;font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;padding:16px 36px">${t.button}</a></td></tr>
 <tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#4F6577;padding:0 0 8px">${t.or}</td></tr>
