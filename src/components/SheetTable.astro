@@ -1,0 +1,200 @@
+---
+// Renders a synced Google Sheet tab (worker/sync.js) as a searchable, filterable table.
+// The Worker fills <script id="reserved-data"> with the latest data on every request,
+// so the page is always current and the data never sits in a public file.
+//
+// summary: sheet headers shown as columns, in order (others appear when a row is expanded)
+// lastLine: headers where only the latest line is shown in the table (e.g. a dated log)
+// filters: headers offered as dropdown filters
+const {
+  lang = 'en',
+  summary = [],
+  lastLine = [],
+  filters = [],
+  numeric = [],
+  activeField = null,
+} = Astro.props;
+const pt = lang === 'pt';
+const t = pt
+  ? {
+      search: 'Pesquisar',
+      searchPh: 'Nome, pessoa, ativo…',
+      all: 'Todos',
+      warm: 'Só caminhos próximos',
+      active: 'Só com atividade',
+      showing: 'A mostrar {n} de {total}',
+      synced: 'Sincronizado com a folha a {date}',
+      none: 'Ainda não há dados sincronizados.',
+      noMatch: 'Nenhum resultado para estes filtros.',
+      warmBadge: 'Caminho próximo',
+      details: 'Ver detalhes',
+    }
+  : {
+      search: 'Search',
+      searchPh: 'Name, person, asset…',
+      all: 'All',
+      warm: 'Warm paths only',
+      active: 'With activity only',
+      showing: 'Showing {n} of {total}',
+      synced: 'Synced from the sheet on {date}',
+      none: 'No data has been synced yet.',
+      noMatch: 'Nothing matches these filters.',
+      warmBadge: 'Warm path',
+      details: 'Show details',
+    };
+const config = { summary, lastLine, filters, numeric, activeField, lang, t };
+---
+<div class="cd-st" data-sheet-table>
+  <div class="cd-st-bar">
+    <label class="cd-st-search">
+      <span class="cd-st-label">{t.search}</span>
+      <input type="search" placeholder={t.searchPh} data-q />
+    </label>
+    <div class="cd-st-filters" data-filters></div>
+    <div class="cd-st-toggles">
+      <label><input type="checkbox" data-warm /> {t.warm}</label>
+      {activeField && <label><input type="checkbox" data-active /> {t.active}</label>}
+    </div>
+  </div>
+  <p class="cd-st-meta"><span data-count></span><span data-synced></span></p>
+  <div class="cd-st-scroll">
+    <table class="cd-st-table">
+      <thead><tr data-head></tr></thead>
+      <tbody data-body></tbody>
+    </table>
+  </div>
+  <p class="cd-st-empty" data-empty hidden></p>
+</div>
+<script is:inline id="reserved-data" type="application/json">null</script>
+<script is:inline type="application/json" id="sheet-table-config" set:html={JSON.stringify(config)}></script>
+<script is:inline>
+  (function () {
+    var root = document.querySelector('[data-sheet-table]');
+    var cfg = JSON.parse(document.getElementById('sheet-table-config').textContent);
+    var data = JSON.parse(document.getElementById('reserved-data').textContent || 'null');
+    var t = cfg.t;
+    var $ = function (sel) { return root.querySelector(sel); };
+    var el = function (tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    };
+
+    if (!data || !data.rows || !data.rows.length) {
+      $('.cd-st-bar').hidden = true;
+      $('.cd-st-scroll').hidden = true;
+      $('[data-empty]').hidden = false;
+      $('[data-empty]').textContent = t.none;
+      return;
+    }
+
+    var cols = data.columns;
+    var at = function (name) { return cols.indexOf(name); };
+    var summary = cfg.summary.filter(function (c) { return at(c) >= 0; });
+    if (!summary.length) summary = cols.slice(0, 4);
+    var details = cols.filter(function (c) { return summary.indexOf(c) < 0 || cfg.lastLine.indexOf(c) >= 0; });
+    var lastLine = function (s) {
+      var lines = String(s || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      return lines.length ? lines[lines.length - 1] : '';
+    };
+    var cell = function (row, name) { return row.cells[at(name)] || ''; };
+
+    // Header
+    summary.forEach(function (c) {
+      var th = el('th', cfg.numeric.indexOf(c) >= 0 ? 'is-num' : '', c);
+      th.dataset.col = c;
+      $('[data-head]').appendChild(th);
+    });
+
+    // Dropdown filters
+    var selects = {};
+    cfg.filters.filter(function (c) { return at(c) >= 0; }).forEach(function (c) {
+      var values = {};
+      data.rows.forEach(function (r) {
+        String(cell(r, c)).split(/[\/;]/).map(function (v) { return v.trim(); }).filter(Boolean).forEach(function (v) { values[v] = 1; });
+      });
+      var label = el('label', 'cd-st-select');
+      label.appendChild(el('span', 'cd-st-label', c));
+      var s = el('select');
+      s.appendChild(new Option(t.all, ''));
+      Object.keys(values).sort().forEach(function (v) { s.appendChild(new Option(v, v)); });
+      label.appendChild(s);
+      $('[data-filters]').appendChild(label);
+      selects[c] = s;
+      s.addEventListener('change', render);
+    });
+
+    var fmtDate = new Intl.DateTimeFormat(cfg.lang === 'pt' ? 'pt-PT' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    $('[data-synced]').textContent = t.synced.replace('{date}', fmtDate.format(new Date(data.updatedAt)));
+
+    var open = {};
+    function render() {
+      var q = $('[data-q]').value.trim().toLowerCase();
+      var warmOnly = $('[data-warm]').checked;
+      var activeOnly = $('[data-active]') && $('[data-active]').checked;
+      var body = $('[data-body]');
+      body.textContent = '';
+      var shown = 0;
+      data.rows.forEach(function (row, i) {
+        if (warmOnly && !row.warm) return;
+        if (activeOnly && !String(cell(row, cfg.activeField)).trim()) return;
+        for (var c in selects) {
+          var v = selects[c].value;
+          if (v && String(cell(row, c)).split(/[\/;]/).map(function (x) { return x.trim(); }).indexOf(v) < 0) return;
+        }
+        if (q && row.cells.join(' ').toLowerCase().indexOf(q) < 0) return;
+        shown++;
+
+        var tr = el('tr', 'cd-st-row' + (row.warm ? ' is-warm' : '') + (open[i] ? ' is-open' : ''));
+        tr.tabIndex = 0;
+        tr.setAttribute('aria-expanded', open[i] ? 'true' : 'false');
+        summary.forEach(function (c, ci) {
+          var v = cell(row, c);
+          if (cfg.lastLine.indexOf(c) >= 0) v = lastLine(v);
+          var td = el('td', cfg.numeric.indexOf(c) >= 0 ? 'is-num' : '');
+          td.dataset.col = c;
+          if (ci === 0) {
+            td.appendChild(el('span', 'cd-st-name', v));
+            if (row.warm) td.appendChild(el('span', 'cd-st-badge', t.warmBadge));
+          } else {
+            td.textContent = v;
+          }
+          tr.appendChild(td);
+        });
+        var toggle = function () {
+          open[i] = !open[i];
+          render();
+        };
+        tr.addEventListener('click', toggle);
+        tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+        body.appendChild(tr);
+
+        if (open[i]) {
+          var dtr = el('tr', 'cd-st-detail' + (row.warm ? ' is-warm' : ''));
+          var td = el('td');
+          td.colSpan = summary.length;
+          var dl = el('dl', 'cd-st-dl');
+          details.forEach(function (c) {
+            var v = cell(row, c);
+            if (!String(v).trim() || v === '-') return;
+            var d = el('div');
+            d.appendChild(el('dt', null, c));
+            d.appendChild(el('dd', null, v));
+            dl.appendChild(d);
+          });
+          td.appendChild(dl);
+          dtr.appendChild(td);
+          body.appendChild(dtr);
+        }
+      });
+      $('[data-count]').textContent = t.showing.replace('{n}', shown).replace('{total}', data.rows.length);
+      $('[data-empty]').hidden = shown > 0;
+      $('[data-empty]').textContent = t.noMatch;
+    }
+    $('[data-q]').addEventListener('input', render);
+    $('[data-warm]').addEventListener('change', render);
+    if ($('[data-active]')) $('[data-active]').addEventListener('change', render);
+    render();
+  })();
+</script>

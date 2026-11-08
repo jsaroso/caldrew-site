@@ -92,6 +92,26 @@ node scripts/reserved-user.mjs list
 
 Commit `reserved-users.json` and push; the site redeploys.
 
+### Fundraising: synced from Google Sheets
+
+The Fundraising section shows the **Owners** tab of the "CCFI - LP Target List" spreadsheet.
+The sheet publishes itself; nobody copies data by hand.
+
+- `scripts/apps-script/reserved-sync.gs` lives in the spreadsheet (Extensions > Apps Script).
+  It sends the tab to `POST /api/sync/fundraising` every 15 minutes, and on demand from the
+  sheet's **Caldrew > Publish to website now** menu. It only sends when something changed.
+  `@OnlyCurrentDoc` limits it to that one spreadsheet.
+- It authenticates with `SYNC_SECRET` (Worker secret; the same value is stored in the script's
+  properties via **Caldrew > Set up automatic publishing**). To rotate: set a new Worker secret,
+  then run the setup menu again with the new key.
+- The Worker keeps the latest version in Workers KV (`RESERVED_KV`) and renders it on every
+  request, so the page is always current and the data is never a public file.
+- Rows highlighted in the sheet (amber = warm path) keep their highlight.
+- Changes (new or removed rows, Stage and First contact updates) are logged. Every day at
+  07:00 UTC everyone with Fundraising access receives a digest email, only if something changed.
+- The page layout (which columns show, filters) is set in `src/pages/reserved/fundraising.astro`.
+  New columns in the sheet appear automatically in the expanded row.
+
 ### Sending the sign-in emails
 
 Reserved-area sign-in emails are sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,
@@ -99,8 +119,9 @@ with replies going to enquiries@caldrew.com. The `PRESS_EMAIL` binding may only 
 address. `notify.caldrew.com` has its own DKIM key and a DMARC `reject` policy. No personal
 mailbox or third-party account is involved.
 
-Worker secret (Cloudflare > Workers > caldrew-site > Settings > Variables and Secrets, type
-"Secret"; the same on caldrew-site-staging): `PRESS_SESSION_SECRET`, any long random string.
+Worker secrets (Cloudflare > Workers > caldrew-site > Settings > Variables and Secrets, type
+"Secret"; the same on caldrew-site-staging): `PRESS_SESSION_SECRET` and `SYNC_SECRET`,
+each any long random string.
 
 Local development: emails are written to `.wrangler/tmp/email/` instead of being sent.
 

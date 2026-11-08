@@ -24,14 +24,20 @@
     // Must be an address on a domain with Email Routing enabled (see README).
     "CONTACT_FROM": "website@notify.caldrew.com",
     // Sender of the reserved-area sign-in emails (Cloudflare Email Sending).
-    "PRESS_MAIL_FROM": "noreply@notify.caldrew.com"
+    "PRESS_MAIL_FROM": "noreply@notify.caldrew.com",
+    // Public address used in links inside emails. Change to https://www.caldrew.com at cutover.
+    "SITE_URL": "https://caldrew-site.jsaroso.workers.dev"
   },
   // Reserved-area sign-in: 10 attempts per minute per IP, 3 emails per minute per address.
   "ratelimits": [
     { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
     { "name": "MAIL_LIMITER", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } }
   ],
-  // Secret (not in this file): PRESS_SESSION_SECRET. See README.
+  // Synced data for the reserved area (the Google Sheet pushes here) and its change log.
+  "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "aa100a6b76a64eb1b2557b5ad73a7224" }],
+  // Daily digest of changes to the team, 07:00 UTC (07:00 Lisbon in winter, 08:00 in summer).
+  "triggers": { "crons": ["0 7 * * *"] },
+  // Secrets (not in this file): PRESS_SESSION_SECRET, SYNC_SECRET. See README.
   "observability": { "enabled": true },
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
   // served at next.caldrew.com behind Cloudflare Access (see README).
@@ -47,12 +53,16 @@
         "STAGING": "1",
         "CONTACT_TO": "enquiries@caldrew.com",
         "CONTACT_FROM": "website@notify.caldrew.com",
-        "PRESS_MAIL_FROM": "noreply@notify.caldrew.com"
+        "PRESS_MAIL_FROM": "noreply@notify.caldrew.com",
+        "SITE_URL": "https://next.caldrew.com"
       },
       "ratelimits": [
         { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
         { "name": "MAIL_LIMITER", "namespace_id": "1004", "simple": { "limit": 3, "period": 60 } }
       ],
+      "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "53f99572246a422aa5b7758f5c842616" }],
+      // No digest from staging, so the team only hears from production.
+      "triggers": { "crons": [] },
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
     }
   }

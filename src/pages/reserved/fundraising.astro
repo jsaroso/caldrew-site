@@ -1,4 +1,16 @@
 ---
 import ReservedPage from '../../components/ReservedPage.astro';
+import SheetTable from '../../components/SheetTable.astro';
+// Content: the "Owners" tab of the CCFI LP Target List, synced from Google Sheets
+// (scripts/apps-script/reserved-sync.gs -> worker/sync.js).
 ---
-<ReservedPage lang="en" kind="section" section="fundraising" />
+<ReservedPage lang="en" kind="section" section="fundraising">
+  <SheetTable
+    lang="en"
+    summary={['Owner / decision unit', 'First contact', 'Stage', 'Relationship type', 'Net income, all yrs (EUR)']}
+    lastLine={['Stage']}
+    filters={['First contact', 'Relationship type']}
+    numeric={['Net income, all yrs (EUR)']}
+    activeField="Stage"
+  />
+</ReservedPage>

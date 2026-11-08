@@ -122,3 +122,48 @@ button.cd-lang-toggle {
 @media (max-width: 767px) { .cd-grid.cd-rhub { grid-template-columns: 1fr; } }
 .cd-rempty .cd-body { background: none; padding: 0; color: #4f6577; }
 .cd-rbar-inner:not(:has(.cd-rbar-tabs)) .cd-rbar-home { border-right: 0; }
+
+/* ---------- Synced sheet table (reserved area) ---------- */
+
+.cd-st { font-family: Inter, sans-serif; color: #213951; padding-bottom: 96px; }
+.cd-st-bar { display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: flex-end; padding-bottom: 20px; border-bottom: 1px solid #354d7326; }
+.cd-st-label { display: block; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #354d739e; margin-bottom: 8px; }
+.cd-st-search { flex: 1 1 260px; }
+.cd-st-search input, .cd-st-select select {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; color: #213951;
+  background: transparent; border: 0; border-bottom: 1px solid #354d7359; border-radius: 0; padding: 8px 0;
+}
+.cd-st-search input:focus, .cd-st-select select:focus { outline: none; border-bottom-color: #9c7a3a; }
+.cd-st-filters { display: flex; gap: 20px; flex-wrap: wrap; }
+.cd-st-select { min-width: 180px; }
+.cd-st-toggles { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; padding-bottom: 8px; }
+.cd-st-toggles input { accent-color: #354d73; margin-right: 6px; }
+.cd-st-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #4f6577; margin: 14px 0 6px; }
+.cd-st-scroll { overflow-x: auto; }
+.cd-st-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+.cd-st-table th {
+  text-align: left; font-weight: 500; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+  color: #354d739e; padding: 12px 16px 12px 0; border-bottom: 1px solid #354d7326; white-space: nowrap;
+}
+.cd-st-table td { padding: 14px 16px 14px 0; border-bottom: 1px solid #354d731a; vertical-align: top; }
+.cd-st-table .is-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cd-st-row { cursor: pointer; }
+.cd-st-row:hover td { background: #efeae1; }
+.cd-st-row:focus-visible { outline: 2px solid #9c7a3a; outline-offset: -2px; }
+.cd-st-row.is-warm td, .cd-st-detail.is-warm td { background: #fbf1d6; }
+.cd-st-row.is-open td { border-bottom-color: transparent; }
+.cd-st-name { font-family: 'Cormorant Garamond', serif; font-size: 19px; color: #354d73; display: block; line-height: 1.25; }
+.cd-st-badge {
+  display: inline-block; margin-top: 6px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: #8a6420; border: 1px solid #c9a768; padding: 2px 6px;
+}
+.cd-st-table td:first-child, .cd-st-table th:first-child { padding-left: 12px; }
+.cd-st-detail td { padding: 4px 16px 24px 12px; }
+.cd-st-dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 32px; margin: 0; }
+.cd-st-dl dt { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #354d739e; margin-bottom: 4px; }
+.cd-st-dl dd { margin: 0; white-space: pre-line; font-size: 14px; }
+.cd-st-empty { font-size: 15px; color: #4f6577; padding: 24px 0; }
+@media (max-width: 767px) {
+  .cd-st-table th[data-col="Relationship type"], .cd-st-table td[data-col="Relationship type"],
+  .cd-st-table th[data-col="Net income, all yrs (EUR)"], .cd-st-table td[data-col="Net income, all yrs (EUR)"] { display: none; }
+}

@@ -3,8 +3,11 @@
 // routes listed in wrangler.jsonc (run_worker_first):
 //   - POST /api/contact  -> emails the contact form to enquiries@caldrew.com
 //   - /reserved/...      -> reserved area: email sign-in, per-email sections (worker/reserved.js)
+//   - POST /api/sync/... -> Google Sheet pushes reserved-area data (worker/sync.js)
+// Daily cron: digest of changes to the team (worker/sync.js).
 import { EmailMessage } from 'cloudflare:email';
 import { isReserved, handleReserved } from './reserved.js';
+import { handleSync, sendDigests } from './sync.js';
 
 export default {
   async fetch(request, env) {
@@ -15,9 +18,16 @@ export default {
       return handleContact(request, env);
     }
 
+    const sync = url.pathname.match(/^\/api\/sync\/([a-z]+)$/);
+    if (sync) return handleSync(request, env, sync[1]);
+
     if (isReserved(url.pathname)) return handleReserved(request, env, url);
 
     return env.ASSETS.fetch(request);
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendDigests(env));
   },
 };
 

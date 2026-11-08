@@ -20,6 +20,7 @@
 // Every sign-in and page view is logged (Workers Logs): who, what, when.
 import USERS from '../reserved-users.json';
 import { sendMail, LOGO_CID } from './mail.js';
+import { DATASETS, getData } from './sync.js';
 
 export const SECTIONS = ['press', 'fundraising', 'dealflow'];
 const SESSION = 'caldrew_reserved';
@@ -76,11 +77,12 @@ export async function handleReserved(request, env, url) {
     const res = await env.ASSETS.fetch(new Request(new URL(`/reserved/${rest}`, url), request));
     return privateResponse(res, res.status);
   }
-  return page(env, url, section ? `${base}/${section}` : base, 200, session.e, sections);
+  const data = section && DATASETS[section] ? await getData(env, section) : null;
+  return page(env, url, section ? `${base}/${section}` : base, 200, session.e, sections, data);
 }
 
 // Serve a built page, hiding sections this person may not open and showing who is signed in.
-async function page(env, url, target, status, email, sections = []) {
+async function page(env, url, target, status, email, sections = [], data = null) {
   const res = await env.ASSETS.fetch(new Request(new URL(target, url)));
   const out = new HTMLRewriter()
     .on('[data-section]', {
@@ -92,6 +94,14 @@ async function page(env, url, target, status, email, sections = []) {
       element(el) {
         // Tabs only make sense with more than one section.
         if (sections.length < 2) el.remove();
+      },
+    })
+    .on('script#reserved-data', {
+      element(el) {
+        // Synced sheet data for this section, embedded for the page script to render.
+        // "<" is escaped so the JSON can never close the script tag.
+        const safe = JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+        el.setInnerContent(safe, { html: true });
       },
     })
     .on('[data-user-email]', {
@@ -217,6 +227,10 @@ function signInEmail(env, { to, lang, link, code }) {
 }
 
 // ---------- access list, tokens, codes ----------
+
+export function usersWithSection(section) {
+  return Object.keys(USERS).filter((e) => sectionsFor(e).includes(section));
+}
 
 function sectionsFor(email) {
   const list = Object.prototype.hasOwnProperty.call(USERS, email) ? USERS[email] : [];
