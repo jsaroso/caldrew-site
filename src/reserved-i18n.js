@@ -26,7 +26,7 @@ export const r = {
         name: 'Fundraising',
         summary: 'The LP pipeline: who we are speaking to, who leads each relationship and where it stands.',
         title: 'Fundraising.',
-        lede: 'The LP pipeline: who we are speaking to, who leads each relationship and where each one stands. Updated automatically from the team sheet.',
+        lede: 'The LP pipeline: who we are speaking to, who leads each relationship and where each one stands.',
       },
       dealflow: {
         name: 'Dealflow',
@@ -60,7 +60,7 @@ export const r = {
         name: 'Angariação de capital',
         summary: 'O pipeline de LPs: com quem estamos a falar, quem lidera cada relação e em que ponto está.',
         title: 'Angariação de capital.',
-        lede: 'O pipeline de LPs: com quem estamos a falar, quem lidera cada relação e em que ponto está cada uma. Atualizado automaticamente a partir da folha da equipa.',
+        lede: 'O pipeline de LPs: com quem estamos a falar, quem lidera cada relação e em que ponto está cada uma.',
       },
       dealflow: {
         name: 'Oportunidades',
