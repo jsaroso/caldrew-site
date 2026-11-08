@@ -135,17 +135,22 @@ Access application "Caldrew Staging" (email one-time code), so drafts stay priva
 never indexed. Add reviewers in Zero Trust > Access > Applications > Caldrew Staging > Policies.
 Contact form emails sent from staging are prefixed "[Staging]".
 
-## Cutover from Webflow
+## Domains (cutover from Webflow: 8 November 2026)
 
-1. Deploy and check the `*.workers.dev` URL against the live site.
-2. Complete the contact form and Access steps above; send a test enquiry.
-3. Workers > caldrew-site > Settings > Domains & Routes > Add custom domain:
-   `www.caldrew.com` and `caldrew.com`. Cloudflare replaces the Webflow DNS records.
-   (Or uncomment `routes` in `wrangler.jsonc` and deploy.)
-4. Rules > Redirect Rules: `caldrew.com/*` -> `https://www.caldrew.com/${1}` (301), as Webflow did.
-5. Keep the Webflow site plan for about two weeks as a fallback, then cancel.
+`caldrew.com` and `www.caldrew.com` are **Workers Custom Domains** on `caldrew-site`
+(set in `wrangler.jsonc`; Cloudflare manages their DNS records and certificates).
+`caldrew.com` redirects to `www.caldrew.com`. Staging is `next.caldrew.com`.
 
-Rollback: remove the custom domains and restore the previous DNS records for Webflow.
+Cleaned up at cutover: the Webflow CNAME/A records, the `_webflow` verification record and
+GoDaddy's `_domainconnect` record. Email records (Google MX, SPF, DKIM, DMARC) and
+`notify.caldrew.com` were not touched by the cutover.
+
+Note: while the domains are still connected to a Webflow project, Webflow can claim traffic for
+them. Remove caldrew.com and www.caldrew.com from the Webflow site settings before cancelling.
+
+Emergency rollback to Webflow (only while the Webflow site still exists): remove the two custom
+domains (Workers > caldrew-site > Settings > Domains & Routes), then recreate
+`www  CNAME cdn.webflow.com` and `caldrew.com  A 198.202.211.1`, both proxied.
 
 ## Differences from the Webflow version
 

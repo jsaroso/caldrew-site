@@ -40,11 +40,11 @@
   "triggers": { "crons": ["0 7 * * *"] },
   // Secrets (not in this file): PRESS_SESSION_SECRET, SYNC_SECRET. See README.
   "observability": { "enabled": true },
-  // caldrew.com is served by this Worker through routes. The DNS records still point at the old
-  // Webflow site underneath, so removing these two routes is an instant rollback.
+  // caldrew.com and www.caldrew.com are Workers Custom Domains: Cloudflare manages their DNS
+  // records and certificates. caldrew.com redirects to www (worker/index.js).
   "routes": [
-    { "pattern": "www.caldrew.com/*", "zone_name": "caldrew.com" },
-    { "pattern": "caldrew.com/*", "zone_name": "caldrew.com" }
+    { "pattern": "www.caldrew.com", "custom_domain": true },
+    { "pattern": "caldrew.com", "custom_domain": true }
   ],
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
   // served at next.caldrew.com behind Cloudflare Access (see README).
