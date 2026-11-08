@@ -140,13 +140,14 @@ button.cd-lang-toggle {
 .cd-st-toggles input { accent-color: #354d73; margin-right: 6px; }
 .cd-st-meta { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #4f6577; margin: 14px 0 6px; }
 .cd-st-scroll { overflow-x: auto; }
-.cd-st-table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.5; }
+.cd-st-table { width: 100%; min-width: 760px; table-layout: fixed; border-collapse: collapse; font-size: 14px; line-height: 1.5; }
 .cd-st-table th {
   text-align: left; font-weight: 500; font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
-  color: #354d739e; padding: 12px 16px 12px 0; border-bottom: 1px solid #354d7326; white-space: nowrap;
+  color: #354d739e; padding: 12px 16px 12px 0; border-bottom: 1px solid #354d7326; white-space: normal; vertical-align: bottom;
 }
-.cd-st-table td { padding: 14px 16px 14px 0; border-bottom: 1px solid #354d731a; vertical-align: top; }
-.cd-st-table .is-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cd-st-table td { padding: 14px 16px 14px 0; border-bottom: 1px solid #354d731a; vertical-align: top; overflow-wrap: break-word; }
+.cd-st-table .is-num { text-align: right; font-variant-numeric: tabular-nums; }
+.cd-st-table td.is-num { white-space: nowrap; }
 .cd-st-row { cursor: pointer; }
 .cd-st-row:hover td { background: #efeae1; }
 .cd-st-row:focus-visible { outline: 2px solid #9c7a3a; outline-offset: -2px; }
@@ -164,6 +165,20 @@ button.cd-lang-toggle {
 .cd-st-dl dd { margin: 0; white-space: pre-line; font-size: 14px; }
 .cd-st-empty { font-size: 15px; color: #4f6577; padding: 24px 0; }
 @media (max-width: 767px) {
+  .cd-st-table { min-width: 0; font-size: 13px; }
+  .cd-st-table th[data-col="Owner / decision unit"] { width: 42% !important; }
+  .cd-st-table th[data-col="First contact"] { width: 22% !important; }
+  .cd-st-table th[data-col="Stage"] { width: 36% !important; }
+  .cd-st-table td, .cd-st-table th { padding-right: 10px; }
+  .cd-st-table td:first-child, .cd-st-table th:first-child { padding-left: 8px; }
+  .cd-st-name { font-size: 17px; }
+  .cd-st-select { width: 100%; }
   .cd-st-table th[data-col="Relationship type"], .cd-st-table td[data-col="Relationship type"],
   .cd-st-table th[data-col="Net income, all yrs (EUR)"], .cd-st-table td[data-col="Net income, all yrs (EUR)"] { display: none; }
 }
+
+/* Keep the scrollbar's space reserved, so the page never shifts sideways when content gets shorter. */
+html { scrollbar-gutter: stable; }
+/* Filters keep their width whatever option is selected. */
+.cd-st-select { width: 200px; min-width: 0; }
+.cd-st-select select { text-overflow: ellipsis; }

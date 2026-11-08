@@ -11,6 +11,13 @@ import SheetTable from '../../components/SheetTable.astro';
     lastLine={['Stage']}
     filters={['First contact', 'Relationship type']}
     numeric={['Net income, all yrs (EUR)']}
+    widths={{
+      'Owner / decision unit': '30%',
+      'First contact': '11%',
+      Stage: '27%',
+      'Relationship type': '18%',
+      'Net income, all yrs (EUR)': '14%',
+    }}
     activeField="Stage"
   />
 </ReservedPage>
