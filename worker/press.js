@@ -12,7 +12,7 @@
 // Everything is signed with the PRESS_SESSION_SECRET secret; without it nobody gets in.
 // No database: links, codes and sessions are self-contained signed tokens.
 import PRESS_USERS from '../press-users.json';
-import { sendGmail } from './gmail.js';
+import { sendMail } from './mail.js';
 
 const SESSION = 'caldrew_press';
 const PENDING = 'caldrew_press_pending';
@@ -63,7 +63,7 @@ async function requestLink(request, env, url) {
   if (hasAccess(email)) {
     const link = `${url.origin}/press/verify?t=${await sign(env, { t: 'link', e: email, exp, l: lang })}`;
     try {
-      await sendGmail(env, signInEmail(env, { to: email, lang, link, code: await codeFor(env, email, exp) }));
+      await sendMail(env, signInEmail(env, { to: email, lang, link, code: await codeFor(env, email, exp) }));
     } catch (err) {
       console.error('press sign-in email failed', err);
       return redirect(`${back}?error=send`);
@@ -136,7 +136,7 @@ function signInEmail(env, { to, lang, link, code }) {
 <tr><td style="font-family:Georgia,'Times New Roman',serif;font-size:32px;letter-spacing:.25em;color:#354D73;padding:0 0 32px">${code}</td></tr>
 <tr><td style="border-top:1px solid #D6D3CC;padding:20px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#7A8794">${t.valid}<br>${t.ignore}<br><br>Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>
 </table></td></tr></table></body></html>`;
-  return { from: `Caldrew <${env.PRESS_MAIL_FROM}>`, to, subject: t.subject, text, html };
+  return { from: env.PRESS_MAIL_FROM, fromName: 'Caldrew', replyTo: 'enquiries@caldrew.com', to, subject: t.subject, text, html };
 }
 
 // ---------- access list, tokens, codes ----------

@@ -13,22 +13,23 @@
   },
   // Cloudflare Email Routing "send_email" binding. Can only deliver to verified addresses.
   "send_email": [
-    { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" }
+    { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" },
+    // Cloudflare Email Sending: Press sign-in emails to anyone on the list, only from this sender.
+    { "name": "PRESS_EMAIL", "allowed_sender_addresses": ["noreply@notify.caldrew.com"] }
   ],
   "vars": {
     "CONTACT_TO": "enquiries@caldrew.com",
     // Must be an address on a domain with Email Routing enabled (see README).
     "CONTACT_FROM": "website@notify.caldrew.com",
-    // Google Workspace mailbox that sends Press sign-in emails (see README).
-    "PRESS_MAIL_FROM": "enquiries@caldrew.com"
+    // Sender of the Press sign-in emails (Cloudflare Email Sending).
+    "PRESS_MAIL_FROM": "noreply@notify.caldrew.com"
   },
   // Press sign-in: 10 attempts per minute per IP, 3 emails per minute per address.
   "ratelimits": [
     { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
     { "name": "MAIL_LIMITER", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } }
   ],
-  // Secrets (not in this file): PRESS_SESSION_SECRET, GOOGLE_CLIENT_ID,
-  // GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN. See README.
+  // Secret (not in this file): PRESS_SESSION_SECRET. See README.
   "observability": { "enabled": true },
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
   // served at next.caldrew.com behind Cloudflare Access (see README).
@@ -37,13 +38,14 @@
       "name": "caldrew-site-staging",
       "workers_dev": false,
       "send_email": [
-        { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" }
+        { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" },
+        { "name": "PRESS_EMAIL", "allowed_sender_addresses": ["noreply@notify.caldrew.com"] }
       ],
       "vars": {
         "STAGING": "1",
         "CONTACT_TO": "enquiries@caldrew.com",
         "CONTACT_FROM": "website@notify.caldrew.com",
-        "PRESS_MAIL_FROM": "enquiries@caldrew.com"
+        "PRESS_MAIL_FROM": "noreply@notify.caldrew.com"
       },
       "ratelimits": [
         { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },

@@ -76,23 +76,17 @@ node scripts/press-user.mjs list
 
 Commit `press-users.json` and push; the site redeploys.
 
-### Sending the sign-in emails (Google Workspace)
+### Sending the sign-in emails
 
-Emails are sent through the Gmail API as one caldrew.com mailbox (`PRESS_MAIL_FROM` in
-`wrangler.jsonc`), with an OAuth refresh token limited to `gmail.send` for that mailbox only.
-Revoke it any time: that account > Google Account > Security > Third-party access > Caldrew website.
+Sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,
+with replies going to enquiries@caldrew.com. The `PRESS_EMAIL` binding may only send from that
+address. `notify.caldrew.com` has its own DKIM key and a DMARC `reject` policy. No personal
+mailbox or third-party account is involved.
 
-Worker secrets (Cloudflare > Workers > caldrew-site > Settings > Variables and Secrets,
-type "Secret"; the same on caldrew-site-staging):
+Worker secret (Cloudflare > Workers > caldrew-site > Settings > Variables and Secrets, type
+"Secret"; the same on caldrew-site-staging): `PRESS_SESSION_SECRET`, any long random string.
 
-| Name | Value |
-|---|---|
-| `PRESS_SESSION_SECRET` | any long random string |
-| `GOOGLE_CLIENT_ID` | OAuth client ID (Google Cloud > Caldrew website > Clients) |
-| `GOOGLE_CLIENT_SECRET` | OAuth client secret |
-| `GOOGLE_REFRESH_TOKEN` | from the OAuth Playground, signed in as the sending mailbox |
-
-Local development: put `DEV_PRINT_EMAILS=1` in `.dev.vars` to log emails instead of sending them.
+Local development: emails are written to `.wrangler/tmp/email/` instead of being sent.
 
 ## Staging (next.caldrew.com)
 
