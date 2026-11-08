@@ -78,6 +78,9 @@ How it works (`worker/reserved.js`):
 - Every sign-in, page view, download and refused access is logged with the email and time
   (Cloudflare > Workers > caldrew-site > Logs; filter on `reserved`).
 - Old `/press` links redirect to `/reserved/press`.
+- While someone is signed in, the reserved-area bar also appears on the public pages (under the
+  main navigation), so they can get back in one click. Signed-out visitors never see it. Pages
+  with the bar are never cached.
 - Limits: 10 attempts per minute per IP; 3 emails per minute per address.
 
 Managing access (`reserved-users.json`):

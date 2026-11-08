@@ -84,7 +84,12 @@ export async function handleReserved(request, env, url) {
 // Serve a built page, hiding sections this person may not open and showing who is signed in.
 async function page(env, url, target, status, email, sections = [], data = null) {
   const res = await env.ASSETS.fetch(new Request(new URL(target, url)));
-  const out = new HTMLRewriter()
+  return privateResponse(personalise(res, email, sections, data), res.ok ? status : res.status);
+}
+
+// Hide sections this person may not open, show who is signed in, embed synced data.
+function personalise(res, email, sections, data = null) {
+  return new HTMLRewriter()
     .on('[data-section]', {
       element(el) {
         if (!sections.includes(el.getAttribute('data-section'))) el.remove();
@@ -98,7 +103,7 @@ async function page(env, url, target, status, email, sections = [], data = null)
     })
     .on('script#reserved-data', {
       element(el) {
-        // Synced sheet data for this section, embedded for the page script to render.
+        // Synced data for this section, embedded for the page script to render.
         // "<" is escaped so the JSON can never close the script tag.
         const safe = JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
         el.setInnerContent(safe, { html: true });
@@ -110,7 +115,39 @@ async function page(env, url, target, status, email, sections = [], data = null)
       },
     })
     .transform(res);
-  return privateResponse(out, res.ok ? status : res.status);
+}
+
+// Public pages: when someone is signed in, keep the reserved-area bar under the main navigation.
+// Signed out (or no access any more): the page is served exactly as built.
+export async function withReservedBar(request, env, url) {
+  const token = readCookie(request, SESSION);
+  const session = token ? await readSigned(env, token, 'session') : null;
+  const sections = session ? sectionsFor(session.e) : [];
+  if (!sections.length) return env.ASSETS.fetch(request);
+
+  // Never answer from the browser's copy of the signed-out page.
+  const fresh = new Request(request);
+  fresh.headers.delete('If-None-Match');
+  fresh.headers.delete('If-Modified-Since');
+  const res = await env.ASSETS.fetch(fresh);
+  if (!(res.headers.get('Content-Type') || '').includes('text/html')) return res;
+
+  const pt = url.pathname === '/pt' || url.pathname.startsWith('/pt/');
+  const barRes = await env.ASSETS.fetch(new Request(new URL(pt ? '/pt/reserved/bar' : '/reserved/bar', url)));
+  if (!barRes.ok) return res;
+  const bar = (await personalise(barRes, session.e, sections).text()).replace(/^\s*<!doctype[^>]*>/i, '');
+
+  const out = new HTMLRewriter()
+    .on('#caldrew-nav', {
+      element(el) {
+        el.after(bar, { html: true });
+      },
+    })
+    .transform(res);
+  const headers = new Headers(out.headers);
+  headers.set('Cache-Control', 'private, no-store');
+  headers.delete('ETag');
+  return new Response(out.body, { status: res.status, headers });
 }
 
 function privateResponse(res, status) {

@@ -4,9 +4,10 @@
 //   - POST /api/contact  -> emails the contact form to enquiries@caldrew.com
 //   - /reserved/...      -> reserved area: email sign-in, per-email sections (worker/reserved.js)
 //   - POST /api/sync/... -> Google Sheet pushes reserved-area data (worker/sync.js)
+//   - public pages       -> reserved-area bar added for signed-in visitors (worker/reserved.js)
 // Daily cron: digest of changes to the team (worker/sync.js).
 import { EmailMessage } from 'cloudflare:email';
-import { isReserved, handleReserved } from './reserved.js';
+import { isReserved, handleReserved, withReservedBar } from './reserved.js';
 import { handleSync, sendDigests } from './sync.js';
 
 export default {
@@ -23,7 +24,8 @@ export default {
 
     if (isReserved(url.pathname)) return handleReserved(request, env, url);
 
-    return env.ASSETS.fetch(request);
+    // Public pages: add the reserved-area bar for signed-in visitors.
+    return withReservedBar(request, env, url);
   },
 
   async scheduled(event, env, ctx) {

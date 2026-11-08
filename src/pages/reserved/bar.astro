@@ -1,0 +1,6 @@
+---
+// Fragment only: the Worker inserts this bar under the main navigation on public pages
+// for signed-in visitors (worker/reserved.js, withReservedBar). Not a page of its own.
+import ReservedBar from '../../components/ReservedBar.astro';
+---
+<ReservedBar lang="en" current="public" />
