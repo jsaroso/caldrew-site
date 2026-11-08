@@ -106,7 +106,6 @@ The sheet publishes itself; nobody copies data by hand.
   then run the setup menu again with the new key.
 - The Worker keeps the latest version in Workers KV (`RESERVED_KV`) and renders it on every
   request, so the page is always current and the data is never a public file.
-- Rows highlighted in the sheet (amber = warm path) keep their highlight.
 - Changes (new or removed rows, Stage and First contact updates) are logged. Every day at
   07:00 UTC everyone with Fundraising access receives a digest email, only if something changed.
 - The page layout (which columns show, filters) is set in `src/pages/reserved/fundraising.astro`.

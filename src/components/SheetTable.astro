@@ -42,13 +42,11 @@ const t = pt
       search: 'Pesquisar',
       searchPh: 'Nome, pessoa, ativo…',
       all: 'Todos',
-      warm: 'Só caminhos próximos',
       active: 'Só com atividade',
       showing: 'A mostrar {n} de {total}',
       synced: 'Sincronizado com a folha a {date}',
       none: 'Ainda não há dados sincronizados.',
       noMatch: 'Nenhum resultado para estes filtros.',
-      warmBadge: 'Caminho próximo',
       activity: 'Atividade',
       noActivity: 'Ainda sem atividade registada.',
       other: 'Outros',
@@ -58,13 +56,11 @@ const t = pt
       search: 'Search',
       searchPh: 'Name, person, asset…',
       all: 'All',
-      warm: 'Warm paths only',
       active: 'With activity only',
       showing: 'Showing {n} of {total}',
       synced: 'Synced from the sheet on {date}',
       none: 'No data has been synced yet.',
       noMatch: 'Nothing matches these filters.',
-      warmBadge: 'Warm path',
       activity: 'Activity',
       noActivity: 'No activity logged yet.',
       other: 'Other',
@@ -84,7 +80,6 @@ const config = {
     </label>
     <div class="cd-st-filters" data-filters></div>
     <div class="cd-st-toggles">
-      <label><input type="checkbox" data-warm /> {t.warm}</label>
       {activeField && <label><input type="checkbox" data-active /> {t.active}</label>}
     </div>
   </div>
@@ -333,14 +328,12 @@ const config = {
     var openIndex = -1;
     function render() {
       var q = $('[data-q]').value.trim().toLowerCase();
-      var warmOnly = $('[data-warm]').checked;
       var activeOnly = $('[data-active]') && $('[data-active]').checked;
       var body = $('[data-body]');
       body.textContent = '';
       var shown = 0;
       order(data.rows).forEach(function (item) {
         var row = item.row, i = item.i;
-        if (warmOnly && !row.warm) return;
         if (activeOnly && empty(cell(row, cfg.activeField))) return;
         for (var c in selects) {
           var v = selects[c].value;
@@ -350,7 +343,7 @@ const config = {
         shown++;
         var isOpen = openIndex === i;
 
-        var tr = el('tr', 'cd-st-row' + (row.warm ? ' is-warm' : '') + (isOpen ? ' is-open' : ''));
+        var tr = el('tr', 'cd-st-row' + (isOpen ? ' is-open' : ''));
         tr.tabIndex = 0;
         tr.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         summary.forEach(function (c, ci) {
@@ -363,7 +356,6 @@ const config = {
             head.appendChild(el('span', 'cd-st-chevron'));
             var name = el('div');
             name.appendChild(el('span', 'cd-st-name', v));
-            if (row.warm) name.appendChild(el('span', 'cd-st-badge', t.warmBadge));
             head.appendChild(name);
             td.appendChild(head);
           } else {
@@ -385,7 +377,7 @@ const config = {
         body.appendChild(tr);
 
         if (isOpen) {
-          var dtr = el('tr', 'cd-st-detail' + (row.warm ? ' is-warm' : ''));
+          var dtr = el('tr', 'cd-st-detail');
           var td = el('td');
           td.colSpan = visibleColumns(); // only the columns visible (some are hidden on phones)
           td.appendChild(panel(row));
@@ -398,7 +390,6 @@ const config = {
       $('[data-empty]').textContent = t.noMatch;
     }
     $('[data-q]').addEventListener('input', render);
-    $('[data-warm]').addEventListener('change', render);
     if ($('[data-active]')) $('[data-active]').addEventListener('change', render);
     window.matchMedia('(max-width: 767px)').addEventListener('change', render);
     render();
