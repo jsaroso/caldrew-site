@@ -3,10 +3,20 @@
 // The Worker fills <script id="reserved-data"> with the latest data on every request,
 // so the page is always current and the data never sits in a public file.
 //
-// summary: sheet headers shown as columns, in order (others appear when a row is expanded)
-// lastLine: headers where only the latest line is shown in the table (e.g. a dated log)
-// filters: headers offered as dropdown filters
-// widths: fixed column widths by header (e.g. '30%'), so the layout never shifts while filtering
+// Table
+//   summary:  sheet headers shown as columns, in order
+//   lastLine: headers where the table shows only the latest line (e.g. a dated log)
+//   numeric:  headers aligned right
+//   widths:   fixed column widths by header (e.g. '30%'), so the layout never shifts
+//   filters:  headers offered as dropdown filters
+//   activeField: header used by the "with activity only" switch
+// Expanded row (one open at a time)
+//   timeline: header shown as a dated timeline on the left (one line = one step)
+//   groups:   [{ title: {en, pt}, fields: [headers] }] shown on the right
+//   lists:    headers whose lines are list items ("- A\n- B")
+//   footer:   headers shown small at the bottom
+//   hide:     headers never shown
+// Any other column not mentioned anywhere still appears, in a final group, so nothing is lost.
 const {
   lang = 'en',
   summary = [],
@@ -15,6 +25,11 @@ const {
   numeric = [],
   widths = {},
   activeField = null,
+  timeline = null,
+  groups = [],
+  lists = [],
+  footer = [],
+  hide = [],
 } = Astro.props;
 const pt = lang === 'pt';
 const t = pt
@@ -29,7 +44,9 @@ const t = pt
       none: 'Ainda não há dados sincronizados.',
       noMatch: 'Nenhum resultado para estes filtros.',
       warmBadge: 'Caminho próximo',
-      details: 'Ver detalhes',
+      activity: 'Atividade',
+      noActivity: 'Ainda sem atividade registada.',
+      other: 'Outros',
     }
   : {
       search: 'Search',
@@ -42,9 +59,15 @@ const t = pt
       none: 'No data has been synced yet.',
       noMatch: 'Nothing matches these filters.',
       warmBadge: 'Warm path',
-      details: 'Show details',
+      activity: 'Activity',
+      noActivity: 'No activity logged yet.',
+      other: 'Other',
     };
-const config = { summary, lastLine, filters, numeric, widths, activeField, lang, t };
+const config = {
+  summary, lastLine, filters, numeric, widths, activeField,
+  timeline, lists, footer, hide, lang, t,
+  groups: groups.map((g) => ({ title: g.title[lang] || g.title.en, fields: g.fields })),
+};
 ---
 <div class="cd-st" data-sheet-table>
   <div class="cd-st-bar">
@@ -82,6 +105,7 @@ const config = { summary, lastLine, filters, numeric, widths, activeField, lang,
       if (text != null) e.textContent = text;
       return e;
     };
+    var has = function (list, c) { return list.indexOf(c) >= 0; };
 
     if (!data || !data.rows || !data.rows.length) {
       $('.cd-st-bar').hidden = true;
@@ -93,18 +117,105 @@ const config = { summary, lastLine, filters, numeric, widths, activeField, lang,
 
     var cols = data.columns;
     var at = function (name) { return cols.indexOf(name); };
+    var cell = function (row, name) { return at(name) >= 0 ? String(row.cells[at(name)] || '') : ''; };
+    var lines = function (s) { return String(s || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean); };
+    var lastLine = function (s) { var l = lines(s); return l.length ? l[l.length - 1] : ''; };
+    var empty = function (v) { v = String(v || '').trim(); return !v || v === '-'; };
     var summary = cfg.summary.filter(function (c) { return at(c) >= 0; });
     if (!summary.length) summary = cols.slice(0, 4);
-    var details = cols.filter(function (c) { return summary.indexOf(c) < 0 || cfg.lastLine.indexOf(c) >= 0; });
-    var lastLine = function (s) {
-      var lines = String(s || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-      return lines.length ? lines[lines.length - 1] : '';
+
+    // Columns not placed anywhere still show, so a new sheet column is never lost.
+    var placed = [].concat(summary.filter(function (c) { return !has(cfg.lastLine, c); }), cfg.timeline ? [cfg.timeline] : [], cfg.footer, cfg.hide);
+    cfg.groups.forEach(function (g) { placed = placed.concat(g.fields); });
+    var leftovers = cols.filter(function (c) { return !has(placed, c); });
+    var groups = cfg.groups.slice();
+    if (leftovers.length) groups.push({ title: t.other, fields: leftovers });
+
+    // Text with clickable email addresses and phone numbers.
+    var linkify = function (parent, text) {
+      var re = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(\+\d[\d\s]{7,}\d)/gi;
+      var last = 0, m;
+      while ((m = re.exec(text))) {
+        if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+        var a = el('a', 'cd-st-link', m[0]);
+        a.href = m[1] ? 'mailto:' + m[1] : 'tel:' + m[2].replace(/\s/g, '');
+        a.addEventListener('click', function (e) { e.stopPropagation(); });
+        parent.appendChild(a);
+        last = m.index + m[0].length;
+      }
+      if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+      return parent;
     };
-    var cell = function (row, name) { return row.cells[at(name)] || ''; };
+
+    function field(row, c) {
+      var v = cell(row, c);
+      if (empty(v)) return null;
+      var wrap = el('div', 'cd-st-field');
+      wrap.appendChild(el('div', 'cd-st-flabel', c));
+      if (has(cfg.lists, c)) {
+        var ul = el('ul', 'cd-st-list');
+        lines(v).forEach(function (l) { ul.appendChild(linkify(el('li'), l.replace(/^[-•]\s*/, ''))); });
+        wrap.appendChild(ul);
+      } else {
+        var d = el('div', 'cd-st-fvalue');
+        lines(v).forEach(function (l, i) {
+          if (i) d.appendChild(el('br'));
+          linkify(d, l);
+        });
+        wrap.appendChild(d);
+      }
+      return wrap;
+    }
+
+    function panel(row) {
+      var p = el('div', 'cd-st-panel');
+      if (cfg.timeline && at(cfg.timeline) >= 0) {
+        var left = el('div', 'cd-st-activity');
+        left.appendChild(el('div', 'cd-st-gtitle', t.activity));
+        var steps = lines(cell(row, cfg.timeline));
+        if (steps.length) {
+          var ol = el('ol', 'cd-st-timeline');
+          steps.forEach(function (s, i) {
+            ol.appendChild(linkify(el('li', i === steps.length - 1 ? 'is-latest' : ''), s));
+          });
+          left.appendChild(ol);
+        } else {
+          left.appendChild(el('p', 'cd-st-muted', t.noActivity));
+        }
+        p.appendChild(left);
+      }
+      var right = el('div', 'cd-st-groups');
+      groups.forEach(function (g) {
+        var fields = g.fields.map(function (c) { return field(row, c); }).filter(Boolean);
+        if (!fields.length) return;
+        var box = el('section', 'cd-st-group');
+        box.appendChild(el('div', 'cd-st-gtitle', g.title));
+        fields.forEach(function (f) { box.appendChild(f); });
+        right.appendChild(box);
+      });
+      p.appendChild(right);
+      // Columns hidden on this screen (phones) move into the footer so they stay visible.
+      var hiddenCols = summary.slice(1).filter(function (c) {
+        var th = root.querySelector('thead th[data-col="' + c.replace(/"/g, '\\"') + '"]');
+        return th && getComputedStyle(th).display === 'none';
+      });
+      var foot = hiddenCols.concat(cfg.footer).filter(function (c) { return !empty(cell(row, c)); });
+      if (foot.length) {
+        var f = el('div', 'cd-st-foot');
+        foot.forEach(function (c) {
+          var s = el('span');
+          s.appendChild(el('span', 'cd-st-flabel', c));
+          linkify(s, cell(row, c));
+          f.appendChild(s);
+        });
+        p.appendChild(f);
+      }
+      return p;
+    }
 
     // Header
     summary.forEach(function (c) {
-      var th = el('th', cfg.numeric.indexOf(c) >= 0 ? 'is-num' : '', c);
+      var th = el('th', has(cfg.numeric, c) ? 'is-num' : '', c);
       th.dataset.col = c;
       if (cfg.widths[c]) th.style.width = cfg.widths[c];
       $('[data-head]').appendChild(th);
@@ -112,11 +223,10 @@ const config = { summary, lastLine, filters, numeric, widths, activeField, lang,
 
     // Dropdown filters
     var selects = {};
+    var parts = function (v) { return String(v).split(/[\/;]/).map(function (x) { return x.trim(); }).filter(Boolean); };
     cfg.filters.filter(function (c) { return at(c) >= 0; }).forEach(function (c) {
       var values = {};
-      data.rows.forEach(function (r) {
-        String(cell(r, c)).split(/[\/;]/).map(function (v) { return v.trim(); }).filter(Boolean).forEach(function (v) { values[v] = 1; });
-      });
+      data.rows.forEach(function (r) { parts(cell(r, c)).forEach(function (v) { values[v] = 1; }); });
       var label = el('label', 'cd-st-select');
       label.appendChild(el('span', 'cd-st-label', c));
       var s = el('select');
@@ -136,7 +246,8 @@ const config = { summary, lastLine, filters, numeric, widths, activeField, lang,
         return getComputedStyle(th).display !== 'none';
       }).length || summary.length;
     };
-    var open = {};
+
+    var openIndex = -1;
     function render() {
       var q = $('[data-q]').value.trim().toLowerCase();
       var warmOnly = $('[data-warm]').checked;
@@ -146,54 +257,54 @@ const config = { summary, lastLine, filters, numeric, widths, activeField, lang,
       var shown = 0;
       data.rows.forEach(function (row, i) {
         if (warmOnly && !row.warm) return;
-        if (activeOnly && !String(cell(row, cfg.activeField)).trim()) return;
+        if (activeOnly && empty(cell(row, cfg.activeField))) return;
         for (var c in selects) {
           var v = selects[c].value;
-          if (v && String(cell(row, c)).split(/[\/;]/).map(function (x) { return x.trim(); }).indexOf(v) < 0) return;
+          if (v && !has(parts(cell(row, c)), v)) return;
         }
         if (q && row.cells.join(' ').toLowerCase().indexOf(q) < 0) return;
         shown++;
+        var isOpen = openIndex === i;
 
-        var tr = el('tr', 'cd-st-row' + (row.warm ? ' is-warm' : '') + (open[i] ? ' is-open' : ''));
+        var tr = el('tr', 'cd-st-row' + (row.warm ? ' is-warm' : '') + (isOpen ? ' is-open' : ''));
         tr.tabIndex = 0;
-        tr.setAttribute('aria-expanded', open[i] ? 'true' : 'false');
+        tr.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         summary.forEach(function (c, ci) {
           var v = cell(row, c);
-          if (cfg.lastLine.indexOf(c) >= 0) v = lastLine(v);
-          var td = el('td', cfg.numeric.indexOf(c) >= 0 ? 'is-num' : '');
+          if (has(cfg.lastLine, c)) v = lastLine(v);
+          var td = el('td', has(cfg.numeric, c) ? 'is-num' : '');
           td.dataset.col = c;
           if (ci === 0) {
-            td.appendChild(el('span', 'cd-st-name', v));
-            if (row.warm) td.appendChild(el('span', 'cd-st-badge', t.warmBadge));
+            var head = el('div', 'cd-st-namewrap');
+            head.appendChild(el('span', 'cd-st-chevron'));
+            var name = el('div');
+            name.appendChild(el('span', 'cd-st-name', v));
+            if (row.warm) name.appendChild(el('span', 'cd-st-badge', t.warmBadge));
+            head.appendChild(name);
+            td.appendChild(head);
           } else {
             // Allow line breaks after slashes ("MQP/MMV" -> "MQP/" + "MMV"), never mid-word.
-            td.textContent = String(v).replace(/\//g, '/\u200b');
+            td.textContent = empty(v) ? '' : v.replace(/\//g, '/​');
           }
           tr.appendChild(td);
         });
         var toggle = function () {
-          open[i] = !open[i];
+          openIndex = isOpen ? -1 : i;
           render();
+          if (!isOpen) {
+            var opened = $('.cd-st-row.is-open');
+            if (opened && opened.getBoundingClientRect().top < 80) opened.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          }
         };
         tr.addEventListener('click', toggle);
         tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
         body.appendChild(tr);
 
-        if (open[i]) {
+        if (isOpen) {
           var dtr = el('tr', 'cd-st-detail' + (row.warm ? ' is-warm' : ''));
           var td = el('td');
-          // Span only the columns actually visible (some are hidden on phones).
-          td.colSpan = visibleColumns();
-          var dl = el('dl', 'cd-st-dl');
-          details.forEach(function (c) {
-            var v = cell(row, c);
-            if (!String(v).trim() || v === '-') return;
-            var d = el('div');
-            d.appendChild(el('dt', null, c));
-            d.appendChild(el('dd', null, v));
-            dl.appendChild(d);
-          });
-          td.appendChild(dl);
+          td.colSpan = visibleColumns(); // only the columns visible (some are hidden on phones)
+          td.appendChild(panel(row));
           dtr.appendChild(td);
           body.appendChild(dtr);
         }

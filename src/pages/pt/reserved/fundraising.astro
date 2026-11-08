@@ -19,5 +19,13 @@ import SheetTable from '../../../components/SheetTable.astro';
       'Net income, all yrs (EUR)': '14%',
     }}
     activeField="Stage"
+    timeline="Stage"
+    groups={[
+      { title: { en: 'Who', pt: 'Quem' }, fields: ['Family or principal', 'Key people'] },
+      { title: { en: 'Holdings', pt: 'Participações' }, fields: ['Headline assets', 'Entities held'] },
+    ]}
+    lists={['Entities held']}
+    footer={['Basis', 'Note']}
+    hide={['#']}
   />
 </ReservedPage>
