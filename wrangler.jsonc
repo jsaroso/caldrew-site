@@ -26,8 +26,8 @@
     "CONTACT_FROM": "website@notify.caldrew.com",
     // Sender of the reserved-area sign-in emails (Cloudflare Email Sending).
     "PRESS_MAIL_FROM": "noreply@notify.caldrew.com",
-    // Public address used in links inside emails. Change to https://www.caldrew.com at cutover.
-    "SITE_URL": "https://caldrew-site.jsaroso.workers.dev"
+    // Public address used in links inside emails.
+    "SITE_URL": "https://www.caldrew.com"
   },
   // Reserved-area sign-in: 10 attempts per minute per IP, 3 emails per minute per address.
   "ratelimits": [
@@ -40,6 +40,12 @@
   "triggers": { "crons": ["0 7 * * *"] },
   // Secrets (not in this file): PRESS_SESSION_SECRET, SYNC_SECRET. See README.
   "observability": { "enabled": true },
+  // caldrew.com is served by this Worker through routes. The DNS records still point at the old
+  // Webflow site underneath, so removing these two routes is an instant rollback.
+  "routes": [
+    { "pattern": "www.caldrew.com/*", "zone_name": "caldrew.com" },
+    { "pattern": "caldrew.com/*", "zone_name": "caldrew.com" }
+  ],
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
   // served at next.caldrew.com behind Cloudflare Access (see README).
   "env": {
@@ -67,6 +73,4 @@
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
     }
   }
-  // Custom domains are attached at cutover (see README):
-  // "routes": [{ "pattern": "www.caldrew.com", "custom_domain": true }, { "pattern": "caldrew.com", "custom_domain": true }]
 }

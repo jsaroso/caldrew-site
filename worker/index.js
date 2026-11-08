@@ -14,6 +14,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // caldrew.com -> www.caldrew.com (the canonical address)
+    if (url.hostname === 'caldrew.com') {
+      return Response.redirect(`https://www.caldrew.com${url.pathname}${url.search}`, 301);
+    }
+
     if (url.pathname === '/api/contact') {
       if (request.method !== 'POST') return json({ ok: false }, 405);
       return handleContact(request, env);
