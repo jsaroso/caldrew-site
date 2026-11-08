@@ -9,7 +9,7 @@ import SheetTable from '../../../components/SheetTable.astro';
     lang="pt"
     summary={['Owner / decision unit', 'First contact', 'Stage']}
     lastLine={['Stage']}
-    filters={['First contact', 'Relationship type']}
+    filters={['First contact']}
     widths={{
       'Owner / decision unit': '38%',
       'First contact': '14%',
@@ -22,7 +22,7 @@ import SheetTable from '../../../components/SheetTable.astro';
       { title: { en: 'Holdings', pt: 'Participações' }, fields: ['Headline assets', 'Entities held'] },
     ]}
     lists={['Entities held']}
-    footer={['Relationship type', 'Net income, all yrs (EUR)', 'Basis', 'Note']}
-    hide={['#']}
+    footer={['Net income, all yrs (EUR)', 'Basis', 'Note']}
+    hide={['#', 'Relationship type']}
   />
 </ReservedPage>
