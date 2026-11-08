@@ -19,6 +19,7 @@
 // No database: links, codes and sessions are self-contained signed tokens.
 // Every sign-in and page view is logged (Workers Logs): who, what, when.
 import USERS from '../reserved-users.json';
+import STAGING_USERS from '../staging-users.json';
 import { sendMail, LOGO_CID } from './mail.js';
 import { DATASETS, getData } from './sync.js';
 
@@ -157,13 +158,34 @@ function privateResponse(res, status) {
   return new Response(res.body, { status, headers });
 }
 
+// ---------- staging gate ----------
+
+// On the staging site (next.caldrew.com) every page needs a signed-in reviewer
+// (staging-users.json). Same sign-in page and email as the reserved area, worded as a preview.
+// Returns a response to send instead of the page, or null to carry on.
+export async function stagingGate(request, env, url) {
+  if (!env.STAGING) return null;
+  if (/^\/reserved\/(signin|code|verify|signout)$/.test(url.pathname)) return null;
+  const session = await readSigned(env, readCookie(request, SESSION), 'session');
+  if (session && STAGING_USERS.includes(session.e)) return null;
+  if (url.pathname.startsWith('/api/')) return new Response('Not found', { status: 404 });
+  const pt = url.pathname === '/pt' || url.pathname.startsWith('/pt/');
+  const res = await env.ASSETS.fetch(new Request(new URL(pt ? '/pt/reserved/preview-sign-in' : '/reserved/preview-sign-in', url)));
+  return privateResponse(res, 401);
+}
+
+// Live site: anyone with a reserved section. Staging: the reviewer list only.
+function canSignIn(env, email) {
+  return env.STAGING ? STAGING_USERS.includes(email) : sectionsFor(email).length > 0;
+}
+
 // ---------- sign-in steps ----------
 
 async function requestLink(request, env, url) {
   const form = await request.formData().catch(() => null);
   if (!form) return redirect('/reserved');
   const lang = form.get('lang') === 'pt' ? 'pt' : 'en';
-  const next = safeNext(form.get('next'), lang);
+  const next = safeNext(form.get('next'), lang, env);
   const back = lang === 'pt' ? '/pt/reserved' : '/reserved';
   const email = String(form.get('email') || '').trim().toLowerCase().slice(0, 256);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return redirect(`${back}?error=email`);
@@ -174,7 +196,7 @@ async function requestLink(request, env, url) {
   const exp = now() + LINK_MINUTES * 60;
   const pending = await sign(env, { t: 'pending', e: email, exp, l: lang, n: next });
 
-  if (sectionsFor(email).length) {
+  if (canSignIn(env, email)) {
     const link = `${url.origin}/reserved/verify?t=${await sign(env, { t: 'link', e: email, exp, l: lang, n: next })}`;
     try {
       await sendMail(env, signInEmail(env, { to: email, lang, link, code: await codeFor(env, email, exp) }));
@@ -198,7 +220,7 @@ async function checkCode(request, env) {
 
   const code = String(form?.get('code') || '').replace(/\D/g, '');
   const expected = await codeFor(env, pending.e, pending.exp);
-  if (!sectionsFor(pending.e).length || code.length !== 6 || !safeEqual(code, expected)) {
+  if (!canSignIn(env, pending.e) || code.length !== 6 || !safeEqual(code, expected)) {
     log('code-failed', pending.e);
     return redirect(`${back}?sent=1&error=code`);
   }
@@ -208,7 +230,7 @@ async function checkCode(request, env) {
 async function verifyLink(env, url) {
   const link = await readSigned(env, url.searchParams.get('t'), 'link');
   const back = link?.l === 'pt' ? '/pt/reserved' : '/reserved';
-  if (!link || !sectionsFor(link.e).length) return redirect(`${back}?error=expired`);
+  if (!link || !canSignIn(env, link.e)) return redirect(`${back}?error=expired`);
   return startSession(env, link.e, link.n || back, false);
 }
 
@@ -221,9 +243,10 @@ async function startSession(env, email, next, clearPending) {
   return new Response(null, { status: 303, headers });
 }
 
-// Only allow returning to a reserved page on this site.
-function safeNext(value, lang) {
+// Only allow returning to a page on this site: a reserved page, or (on staging) any page.
+function safeNext(value, lang, env) {
   const v = String(value || '');
+  if (env.STAGING && /^\/[a-z0-9\-\/]*$/.test(v) && !v.startsWith('//') && !/(signin|signout|verify|code)$/.test(v)) return v;
   if (/^\/(pt\/)?reserved(\/[a-z0-9-]+)?$/.test(v) && !/(sign-in|no-access|signin|signout|verify|code)$/.test(v)) return v;
   return lang === 'pt' ? '/pt/reserved' : '/reserved';
 }
@@ -232,34 +255,60 @@ function safeNext(value, lang) {
 
 function signInEmail(env, { to, lang, link, code }) {
   const pt = lang === 'pt';
+  const preview = Boolean(env.STAGING);
   const t = pt
     ? {
-        subject: 'O seu acesso à área reservada da Caldrew',
-        intro: 'Use o botão abaixo para entrar na área reservada da Caldrew.',
+        subject: preview ? 'O seu acesso à pré-visualização do site da Caldrew' : 'O seu acesso à área reservada da Caldrew',
+        eyebrow: preview ? 'Pré-visualização' : 'Área reservada',
+        title: 'O seu link de acesso',
+        intro: preview
+          ? 'Use o botão abaixo para abrir a pré-visualização privada do site da Caldrew.'
+          : 'Use o botão abaixo para entrar na área reservada da Caldrew.',
         button: 'Entrar',
-        or: 'Ou introduza este código na página onde o pediu:',
+        or: 'Ou introduza este código na página onde o pediu',
         valid: `O link e o código são válidos durante ${LINK_MINUTES} minutos.`,
         ignore: 'Se não pediu este acesso, pode ignorar este email.',
       }
     : {
-        subject: 'Your sign-in link for Caldrew',
-        intro: 'Use the button below to open the Caldrew reserved area.',
+        subject: preview ? 'Your sign-in link for the Caldrew website preview' : 'Your sign-in link for Caldrew',
+        eyebrow: preview ? 'Website preview' : 'Reserved area',
+        title: 'Your sign-in link',
+        intro: preview
+          ? 'Use the button below to open the private preview of the Caldrew website.'
+          : 'Use the button below to open the Caldrew reserved area.',
         button: 'Sign in',
-        or: 'Or enter this code on the page where you asked for it:',
+        or: 'Or enter this code on the page where you asked for it',
         valid: `The link and code are valid for ${LINK_MINUTES} minutes.`,
         ignore: 'If you did not ask for this, you can ignore this email.',
       };
-  const text = `${t.intro}\n\n${link}\n\n${t.or} ${code}\n\n${t.valid}\n${t.ignore}\n\nCaldrew, S.A.\nRua Castilho, 32 - 4, 1250-070 Lisboa`;
-  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#F7F4EE">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F4EE"><tr><td align="center" style="padding:40px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px">
-<tr><td style="padding:0 0 36px"><img src="cid:${LOGO_CID}" width="168" height="39" alt="Caldrew Capital" style="display:block;width:168px;height:auto;border:0;outline:none;color:#354D73;font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:.3em"></td></tr>
-<tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.7;color:#213951;padding:0 0 28px">${t.intro}</td></tr>
-<tr><td style="padding:0 0 32px"><a href="${link}" style="display:inline-block;background:#354D73;color:#F0EEE9;font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;padding:16px 36px">${t.button}</a></td></tr>
-<tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#4F6577;padding:0 0 8px">${t.or}</td></tr>
-<tr><td style="font-family:Georgia,'Times New Roman',serif;font-size:32px;letter-spacing:.25em;color:#354D73;padding:0 0 32px">${code}</td></tr>
-<tr><td style="border-top:1px solid #D6D3CC;padding:20px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#7A8794">${t.valid}<br>${t.ignore}<br><br>Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>
-</table></td></tr></table></body></html>`;
+  const text = `${t.title}\n\n${t.intro}\n\n${link}\n\n${t.or}: ${code}\n\n${t.valid}\n${t.ignore}\n\nCaldrew, S.A.\nRua Castilho, 32 - 4, 1250-070 Lisboa`;
+  const sans = "Helvetica,Arial,sans-serif";
+  const serif = "Georgia,'Times New Roman',serif";
+  const html = `<!doctype html><html><head><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"></head>
+<body style="margin:0;padding:0;background:#EFEAE1">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EFEAE1"><tr><td align="center" style="padding:48px 16px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#F7F4EE;border-top:3px solid #9C7A3A">
+<tr><td style="padding:44px 44px 0">
+  <img src="cid:${LOGO_CID}" width="168" height="39" alt="Caldrew Capital" style="display:block;width:168px;height:auto;border:0;outline:none;color:#354D73;font-family:${serif};font-size:20px;letter-spacing:.3em">
+</td></tr>
+<tr><td style="padding:40px 44px 0;font-family:${sans};font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#9C7A3A">${t.eyebrow}</td></tr>
+<tr><td style="padding:12px 44px 0;font-family:${serif};font-size:30px;line-height:1.15;color:#354D73">${t.title}</td></tr>
+<tr><td style="padding:18px 44px 0;font-family:${sans};font-size:15px;line-height:1.7;color:#213951">${t.intro}</td></tr>
+<tr><td style="padding:30px 44px 0">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#354D73">
+    <a href="${link}" style="display:inline-block;padding:17px 44px;font-family:${sans};font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#F0EEE9;text-decoration:none">${t.button}</a>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:36px 44px 10px;font-family:${sans};font-size:13px;line-height:1.6;color:#4F6577">${t.or}</td></tr>
+<tr><td style="padding:0 44px">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border:1px solid #D6D3CC;background:#FFFDF9;padding:14px 22px;font-family:${serif};font-size:30px;letter-spacing:.32em;color:#354D73">${code}</td></tr></table>
+</td></tr>
+<tr><td style="padding:36px 44px 40px">
+  <div style="border-top:1px solid #D6D3CC;padding-top:18px;font-family:${sans};font-size:12px;line-height:1.7;color:#7A8794">${t.valid}<br>${t.ignore}</div>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px"><tr><td style="padding:18px 44px 0;font-family:${sans};font-size:11px;line-height:1.6;color:#8B95A0">Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr></table>
+</td></tr></table></body></html>`;
   return { from: env.PRESS_MAIL_FROM, fromName: 'Caldrew', replyTo: 'enquiries@caldrew.com', to, subject: t.subject, text, html };
 }
 

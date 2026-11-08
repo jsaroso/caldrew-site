@@ -3,7 +3,8 @@
 // The Worker (worker/reserved.js) serves it at any /reserved URL when the visitor is not signed in,
 // and sends them back to that URL after signing in.
 // Two steps on one page: ask for the email; then (?sent=1) offer the 6-digit code.
-const { lang = 'en' } = Astro.props;
+// kind="preview": the same page used as the gate of the staging site (next.caldrew.com).
+const { lang = 'en', kind = 'reserved' } = Astro.props;
 const pt = lang === 'pt';
 const c = pt
   ? {
@@ -62,6 +63,19 @@ const c = pt
       subject: 'Reserved area access request',
       home: 'Back to the website',
     };
+if (kind === 'preview') {
+  Object.assign(c, pt
+    ? {
+        eyebrow: 'Pré-visualização',
+        lede: 'Esta é uma pré-visualização privada do site da Caldrew. Introduza o seu email e enviamos-lhe um link de acesso.',
+        subject: 'Acesso à pré-visualização do site',
+      }
+    : {
+        eyebrow: 'Preview',
+        lede: 'This is a private preview of the Caldrew website. Enter your email and we will send you a sign-in link.',
+        subject: 'Website preview access',
+      });
+}
 const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subject)}`;
 const self = pt ? '/pt/reserved' : '/reserved';
 ---
@@ -99,7 +113,7 @@ const self = pt ? '/pt/reserved' : '/reserved';
         <div class="cd-login-error" role="alert" data-error={key} hidden>{msg}</div>
       ))}
       <p class="cd-login-foot">{c.noAccess} <a href={mail}>{c.request}</a>.</p>
-      <p class="cd-login-foot cd-login-back"><a href={pt ? '/pt' : '/'}>{c.home}</a></p>
+      {kind !== 'preview' && <p class="cd-login-foot cd-login-back"><a href={pt ? '/pt' : '/'}>{c.home}</a></p>}
     </div>
   </div>
 </div>

@@ -7,7 +7,7 @@
 //   - public pages       -> reserved-area bar added for signed-in visitors (worker/reserved.js)
 // Daily cron: digest of changes to the team (worker/sync.js).
 import { EmailMessage } from 'cloudflare:email';
-import { isReserved, handleReserved, withReservedBar } from './reserved.js';
+import { isReserved, handleReserved, withReservedBar, stagingGate } from './reserved.js';
 import { handleSync, sendDigests } from './sync.js';
 
 export default {
@@ -20,6 +20,10 @@ export default {
       return Response.redirect(`https://www.caldrew.com${url.pathname}${url.search}`, 301);
     }
 
+    // Staging (next.caldrew.com): every page requires a signed-in reviewer.
+    const gate = await stagingGate(request, env, url);
+    if (gate) return noindex(env, gate);
+
     if (url.pathname === '/api/contact') {
       if (request.method !== 'POST') return json({ ok: false }, 405);
       return handleContact(request, env);
@@ -31,13 +35,21 @@ export default {
     if (isReserved(url.pathname)) return handleReserved(request, env, url);
 
     // Public pages: add the reserved-area bar for signed-in visitors.
-    return withReservedBar(request, env, url);
+    return noindex(env, await withReservedBar(request, env, url));
   },
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(sendDigests(env));
   },
 };
+
+// Staging is never indexed by search engines.
+function noindex(env, res) {
+  if (!env.STAGING) return res;
+  const out = new Response(res.body, res);
+  out.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return out;
+}
 
 // ---------- Contact form ----------
 

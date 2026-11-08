@@ -1,0 +1,8 @@
+---
+// Gate of the staging site (next.caldrew.com): served by the Worker to anyone not signed in.
+import Base from '../../../layouts/Base.astro';
+import ReservedGate from '../../../components/ReservedGate.astro';
+---
+<Base lang="pt" title="Caldrew | Pré-visualização" noindex chrome={false}>
+  <ReservedGate lang="pt" kind="preview" />
+</Base>
