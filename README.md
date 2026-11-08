@@ -56,32 +56,40 @@ Optional Turnstile:
 
 ## Press (private area)
 
-`/press` and `/pt/press` are private. Visitors who are not signed in see a branded sign-in
-page (`src/components/PressGate.astro`, same layout as the old Webflow login page) with a
-"Continue with email" button and a "Request access" link.
+`/press` and `/pt/press` are private. Visitors who are not signed in see a branded sign-in page
+(`src/components/PressGate.astro`, same layout as the old Webflow login page) asking for their
+email and password, with a "Request access" link to enquiries@caldrew.com.
 
-The button goes to `/press/signin`, which is protected by **Cloudflare Access** (Zero Trust,
-free up to 50 users). Access asks for the visitor's email and sends a one-time code; there is no
-password to share. After that, the Worker stores the Access token in a cookie and opens
-`/press` for the rest of the Access session. Every token is verified against Cloudflare's
-public keys, and if Access is not configured nobody gets in.
+- Each person has their own password. Only PBKDF2 hashes are stored, in `press-users.json`.
+- Sign-in sets a signed cookie valid for 30 days (`PRESS_SESSION_SECRET`, a Worker secret).
+- Removing someone from `press-users.json` ends their access immediately, even mid-session.
+- Max 10 sign-in attempts per minute per IP (Workers rate limiting binding).
+- Sign out: `/press/signout`.
 
-Setup (one-time):
+Managing access:
 
-1. Zero Trust > Access > Applications > Add an application > Self-hosted.
-   - Name: Caldrew Press. Session duration: 24 hours (or longer).
-   - Public hostnames: `www.caldrew.com` path `press/signin`, `caldrew.com` path `press/signin`
-     (plus any staging hostname, e.g. `next.caldrew.com` path `press/signin`).
-   - Policy: Allow > Include > Emails: the people who should have access.
-   - Login methods: One-time PIN.
-2. From the application's overview, copy the **Application Audience (AUD) tag**, and from
-   Zero Trust > Settings > Team name and domain, the **team domain** (`<team>.cloudflareaccess.com`).
-   Put them in `ACCESS_AUD` and `ACCESS_TEAM_DOMAIN` in `wrangler.jsonc` and deploy.
-3. Optional branding of the code screen: Zero Trust > Settings > Custom pages > Login page
-   (logo `public/images/caldrew-logo.png`, background `#F7F4EE`, header "Caldrew").
+```bash
+node scripts/press-user.mjs add name@example.com      # prints a new password once
+node scripts/press-user.mjs remove name@example.com
+node scripts/press-user.mjs list
+```
 
-To give someone access: add their email to the policy. To revoke: remove it (takes effect when
-their current session expires). Sign out: `/press/signout`.
+Commit `press-users.json` and push; the site redeploys. `add` on an existing email resets the password.
+
+One-time setup per Worker: set the session secret (any long random string):
+
+```bash
+npx wrangler secret put PRESS_SESSION_SECRET                 # production
+npx wrangler secret put PRESS_SESSION_SECRET --env staging   # staging
+```
+
+## Staging (next.caldrew.com)
+
+Separate Worker `caldrew-site-staging`, deployed from the `staging` branch with
+`npx wrangler deploy --env staging`. The whole of next.caldrew.com is behind the Cloudflare
+Access application "Caldrew Staging" (email one-time code), so drafts stay private and are
+never indexed. Add reviewers in Zero Trust > Access > Applications > Caldrew Staging > Policies.
+Contact form emails sent from staging are prefixed "[Staging]".
 
 ## Cutover from Webflow
 

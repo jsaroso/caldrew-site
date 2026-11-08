@@ -28,12 +28,6 @@ button.cd-lang-toggle {
 }
 
 /* Press sign-in page */
-.cd-login-cta {
-  display: block;
-  text-align: center;
-  text-decoration: none;
-  box-sizing: border-box;
-}
 .cd-login-foot a {
   color: #354d73;
   text-decoration: underline;

@@ -1,5 +1,5 @@
 ---
-// Branded entry page for the private Press area (same layout as the old Webflow login page).
+// Branded sign-in page for the private Press area (same layout as the old Webflow login page).
 // The Worker serves this at /press and /pt/press when the visitor is not signed in.
 const { lang = 'en' } = Astro.props;
 const pt = lang === 'pt';
@@ -8,9 +8,15 @@ const c = pt
       aside: 'Compramos e desenvolvemos empresas ibéricas com um horizonte de longo prazo.',
       eyebrow: 'Área reservada',
       title: 'Inicie sessão para continuar.',
-      lede: 'Esta área é reservada a imprensa e parceiros da Caldrew. No passo seguinte, introduza o seu email: se tiver acesso, enviamos-lhe um código de uso único.',
-      button: 'Continuar com email',
-      denied: 'Não foi possível iniciar sessão neste endereço. Tente novamente ou escreva para enquiries@caldrew.com.',
+      lede: 'Esta área é reservada a imprensa e parceiros da Caldrew. Utilize o email e a palavra-passe que recebeu de nós.',
+      email: 'Email',
+      emailPh: 'O seu email',
+      password: 'Palavra-passe',
+      passwordPh: 'A sua palavra-passe',
+      button: 'Continuar',
+      wait: 'A verificar…',
+      error: 'O email e a palavra-passe não correspondem. Tente novamente ou escreva para enquiries@caldrew.com.',
+      tooMany: 'Demasiadas tentativas. Aguarde um minuto e tente novamente.',
       noAccess: 'Ainda não tem acesso?',
       request: 'Peça acesso',
       subject: 'Pedido de acesso à área de imprensa',
@@ -20,15 +26,20 @@ const c = pt
       aside: 'We buy and build Iberian companies for the long term.',
       eyebrow: 'Private area',
       title: 'Sign in to continue.',
-      lede: 'This area is reserved for press and partners of Caldrew. On the next step, enter your email address: if you have access, we will send you a one-time code.',
-      button: 'Continue with email',
-      denied: 'Sign-in is not available at this address. Try again, or write to enquiries@caldrew.com.',
+      lede: 'This area is reserved for press and partners of Caldrew. Use the email and password you received from us.',
+      email: 'Email',
+      emailPh: 'Your email',
+      password: 'Password',
+      passwordPh: 'Your password',
+      button: 'Continue',
+      wait: 'Checking…',
+      error: 'That email and password don’t match. Try again, or write to enquiries@caldrew.com.',
+      tooMany: 'Too many attempts. Wait a minute and try again.',
       noAccess: 'No access yet?',
       request: 'Request access',
       subject: 'Press area access request',
       home: 'Back to the website',
     };
-const signin = pt ? '/press/signin?lang=pt' : '/press/signin';
 const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subject)}`;
 ---
 <div class="cd-login-wrap">
@@ -38,19 +49,32 @@ const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subjec
     <p class="cd-login-aside-note">Caldrew, S.A. Rua Castilho, 32 - 4, 1250-070 Lisboa</p>
   </div>
   <div class="cd-login-panel">
-    <div class="cd-login-form">
+    <form class="cd-login-form" method="post" action="/press/signin" data-press-login>
+      <input type="hidden" name="lang" value={lang} />
       <p class="cd-login-eyebrow">{c.eyebrow}</p>
       <h2 class="cd-login-title">{c.title}</h2>
       <p class="cd-login-lede">{c.lede}</p>
-      <a href={signin} class="cd-login-button w-button cd-login-cta">{c.button}</a>
-      <div class="cd-login-error cd-login-denied" role="alert" hidden>{c.denied}</div>
+      <label for="press-email" class="cd-login-label">{c.email}</label>
+      <input class="cd-login-input w-input" id="press-email" name="email" type="email" autocomplete="username" placeholder={c.emailPh} required maxlength="256" />
+      <label for="press-pass" class="cd-login-label">{c.password}</label>
+      <input class="cd-login-input w-input" id="press-pass" name="password" type="password" autocomplete="current-password" placeholder={c.passwordPh} required maxlength="256" />
+      <input type="submit" class="cd-login-button w-button" value={c.button} data-wait={c.wait} />
+      <div class="cd-login-error" role="alert" data-error="1" hidden>{c.error}</div>
+      <div class="cd-login-error" role="alert" data-error="wait" hidden>{c.tooMany}</div>
       <p class="cd-login-foot">{c.noAccess} <a href={mail}>{c.request}</a>.</p>
       <p class="cd-login-foot cd-login-back"><a href={pt ? '/pt' : '/'}>{c.home}</a></p>
-    </div>
+    </form>
   </div>
 </div>
 <script is:inline>
-  if (new URLSearchParams(location.search).has('denied')) {
-    document.querySelector('.cd-login-denied').hidden = false;
-  }
+  (function () {
+    var err = new URLSearchParams(location.search).get('error');
+    var box = err && document.querySelector('[data-error="' + err + '"]');
+    if (box) box.hidden = false;
+    var f = document.querySelector('[data-press-login]');
+    f.addEventListener('submit', function () {
+      var b = f.querySelector('[type=submit]');
+      b.value = b.getAttribute('data-wait');
+    });
+  })();
 </script>

@@ -11,8 +11,7 @@
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
-    "astro": "^7.4.7",
-    "jose": "^6.2.15"
+    "astro": "^7.4.7"
   },
   "devDependencies": {
     "wrangler": "^4.158.0"

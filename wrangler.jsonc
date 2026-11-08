@@ -19,10 +19,12 @@
     "CONTACT_TO": "enquiries@caldrew.com",
     // Must be an address on a domain with Email Routing enabled (see README).
     "CONTACT_FROM": "website@notify.caldrew.com",
-    // Cloudflare Access: team domain and the "Caldrew Press" application audience tag.
-    "ACCESS_TEAM_DOMAIN": "plain-haze-6413.cloudflareaccess.com",
-    "ACCESS_AUD": "1254459d9dc284e76f6dda491a8b4493af203c0fc594f71625876f46e56d8bb4"
   },
+  // Press sign-in: max 10 attempts per minute per IP.
+  "ratelimits": [
+    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+  ],
+  // Secret (not in this file): PRESS_SESSION_SECRET. See README.
   "observability": { "enabled": true },
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
   // served at next.caldrew.com behind Cloudflare Access (see README).
@@ -36,10 +38,11 @@
       "vars": {
         "STAGING": "1",
         "CONTACT_TO": "enquiries@caldrew.com",
-        "CONTACT_FROM": "website@notify.caldrew.com",
-        "ACCESS_TEAM_DOMAIN": "plain-haze-6413.cloudflareaccess.com",
-        "ACCESS_AUD": "1254459d9dc284e76f6dda491a8b4493af203c0fc594f71625876f46e56d8bb4"
+        "CONTACT_FROM": "website@notify.caldrew.com"
       },
+      "ratelimits": [
+        { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+      ],
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
     }
   }
