@@ -7,16 +7,13 @@ import SheetTable from '../../components/SheetTable.astro';
 <ReservedPage lang="en" kind="section" section="fundraising">
   <SheetTable
     lang="en"
-    summary={['Owner / decision unit', 'First contact', 'Stage', 'Relationship type', 'Net income, all yrs (EUR)']}
+    summary={['Owner / decision unit', 'First contact', 'Stage']}
     lastLine={['Stage']}
     filters={['First contact', 'Relationship type']}
-    numeric={['Net income, all yrs (EUR)']}
     widths={{
-      'Owner / decision unit': '30%',
-      'First contact': '11%',
-      Stage: '27%',
-      'Relationship type': '18%',
-      'Net income, all yrs (EUR)': '14%',
+      'Owner / decision unit': '38%',
+      'First contact': '14%',
+      Stage: '48%',
     }}
     activeField="Stage"
     timeline="Stage"
@@ -25,7 +22,7 @@ import SheetTable from '../../components/SheetTable.astro';
       { title: { en: 'Holdings', pt: 'Participações' }, fields: ['Headline assets', 'Entities held'] },
     ]}
     lists={['Entities held']}
-    footer={['Basis', 'Note']}
+    footer={['Relationship type', 'Net income, all yrs (EUR)', 'Basis', 'Note']}
     hide={['#']}
   />
 </ReservedPage>
