@@ -19,9 +19,9 @@
     "CONTACT_TO": "enquiries@caldrew.com",
     // Must be an address on a domain with Email Routing enabled (see README).
     "CONTACT_FROM": "website@notify.caldrew.com",
-    // Filled in after creating the Access application (see README).
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    // Cloudflare Access: team domain and the "Caldrew Press" application audience tag.
+    "ACCESS_TEAM_DOMAIN": "plain-haze-6413.cloudflareaccess.com",
+    "ACCESS_AUD": "1254459d9dc284e76f6dda491a8b4493af203c0fc594f71625876f46e56d8bb4"
   },
   "observability": { "enabled": true },
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
@@ -37,8 +37,8 @@
         "STAGING": "1",
         "CONTACT_TO": "enquiries@caldrew.com",
         "CONTACT_FROM": "website@notify.caldrew.com",
-        "ACCESS_TEAM_DOMAIN": "",
-        "ACCESS_AUD": ""
+        "ACCESS_TEAM_DOMAIN": "plain-haze-6413.cloudflareaccess.com",
+        "ACCESS_AUD": "1254459d9dc284e76f6dda491a8b4493af203c0fc594f71625876f46e56d8bb4"
       },
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
     }

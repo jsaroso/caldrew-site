@@ -55,8 +55,11 @@ async function handlePress(request, env, url) {
     return redirect(pt ? '/pt' : '/', `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
   }
 
-  const token = request.headers.get('Cf-Access-Jwt-Assertion') || readCookie(request, COOKIE);
-  const signedIn = token && (await verifyAccess(token, env));
+  // Accept either the Access header or our cookie. On next.caldrew.com the whole site sits
+  // behind a second Access app, so the header can carry that app's token instead.
+  const candidates = [request.headers.get('Cf-Access-Jwt-Assertion'), readCookie(request, COOKIE)].filter(Boolean);
+  let signedIn = false;
+  for (const t of candidates) if (await verifyAccess(t, env)) { signedIn = true; break; }
   const page = signedIn ? home : pt ? '/pt/press-login' : '/press-login';
   const res = await env.ASSETS.fetch(new Request(new URL(page, url), request));
   const headers = new Headers(res.headers);
