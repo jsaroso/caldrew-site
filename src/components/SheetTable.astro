@@ -10,6 +10,8 @@
 //   widths:   fixed column widths by header (e.g. '30%'), so the layout never shifts
 //   filters:  headers offered as dropdown filters
 //   activeField: header used by the "with activity only" switch
+//   dateSort: headers sorted by the most recent d/m date in their text (e.g. a dated log)
+// Click a column header to sort; click again to reverse; a third click restores the sheet order.
 // Expanded row (one open at a time)
 //   timeline: header shown as a dated timeline on the left (one line = one step)
 //   groups:   [{ title: {en, pt}, fields: [headers] }] shown on the right
@@ -25,6 +27,7 @@ const {
   numeric = [],
   widths = {},
   activeField = null,
+  dateSort = [],
   timeline = null,
   groups = [],
   lists = [],
@@ -47,6 +50,7 @@ const t = pt
       activity: 'Atividade',
       noActivity: 'Ainda sem atividade registada.',
       other: 'Outros',
+      sortHint: 'Ordenar',
     }
   : {
       search: 'Search',
@@ -62,9 +66,10 @@ const t = pt
       activity: 'Activity',
       noActivity: 'No activity logged yet.',
       other: 'Other',
+      sortHint: 'Sort',
     };
 const config = {
-  summary, lastLine, filters, numeric, widths, activeField,
+  summary, lastLine, filters, numeric, widths, activeField, dateSort,
   timeline, lists, footer, hide, lang, t,
   groups: groups.map((g) => ({ title: g.title[lang] || g.title.en, fields: g.fields })),
 };
@@ -214,12 +219,80 @@ const config = {
     }
 
     // Header
+    var sortCol = null, sortDir = 0; // 0 = sheet order, 1 = ascending, -1 = descending
     summary.forEach(function (c) {
-      var th = el('th', has(cfg.numeric, c) ? 'is-num' : '', c);
+      var th = el('th', has(cfg.numeric, c) ? 'is-num' : '');
       th.dataset.col = c;
+      th.setAttribute('aria-sort', 'none');
       if (cfg.widths[c]) th.style.width = cfg.widths[c];
+      var b = el('button', 'cd-st-sort');
+      b.type = 'button';
+      b.title = t.sortHint;
+      b.appendChild(el('span', null, c));
+      b.appendChild(el('span', 'cd-st-arrow'));
+      b.addEventListener('click', function () {
+        // Dates sort newest first on the first click; everything else A to Z.
+        var first = has(cfg.dateSort, c) ? -1 : 1;
+        if (sortCol !== c) { sortCol = c; sortDir = first; }
+        else if (sortDir === first) sortDir = -first;
+        else { sortCol = null; sortDir = 0; }
+        root.querySelectorAll('thead th').forEach(function (h) {
+          var on = h.dataset.col === sortCol;
+          h.classList.toggle('is-sorted', on);
+          h.classList.toggle('is-desc', on && sortDir < 0);
+          h.setAttribute('aria-sort', on ? (sortDir > 0 ? 'ascending' : 'descending') : 'none');
+        });
+        render();
+      });
+      th.appendChild(b);
       $('[data-head]').appendChild(th);
     });
+
+    // Sort keys. Empty values always go last, whichever the direction.
+    var latestDate = function (text) {
+      // Most recent "d/m" in the text, as a comparable number (month * 100 + day).
+      // Months after the current one count as last year, so October stays before a January note.
+      var best = null, now = new Date(), m, re = /\b(\d{1,2})\/(\d{1,2})\b/g;
+      while ((m = re.exec(text))) {
+        var d = +m[1], mo = +m[2];
+        if (d < 1 || d > 31 || mo < 1 || mo > 12) continue;
+        var y = mo > now.getMonth() + 1 ? -1 : 0;
+        var key = (y + 1) * 10000 + mo * 100 + d;
+        if (best === null || key > best) best = key;
+      }
+      return best;
+    };
+    var numberOf = function (v) {
+      var s = String(v).replace(/[\s,]/g, '');
+      var neg = /^\(.*\)$/.test(s);
+      var n = parseFloat(s.replace(/[()]/g, ''));
+      return isNaN(n) ? null : neg ? -n : n;
+    };
+    var sortKey = function (row, c) {
+      var v = cell(row, c);
+      if (empty(v)) return null;
+      if (has(cfg.dateSort, c)) return latestDate(v);
+      if (has(cfg.numeric, c)) return numberOf(v);
+      return v.toLowerCase();
+    };
+    var collator = new Intl.Collator(cfg.lang === 'pt' ? 'pt-PT' : 'en', { sensitivity: 'base', numeric: true });
+    var order = function (rows) {
+      var list = rows.map(function (row, i) { return { row: row, i: i }; });
+      if (!sortCol) return list;
+      return list.sort(function (a, b) {
+        var x = sortKey(a.row, sortCol), y = sortKey(b.row, sortCol);
+        if (x === null && y === null) return a.i - b.i;
+        if (x === null) return 1;
+        if (y === null) return -1;
+        var r = typeof x === 'number' ? x - y : collator.compare(x, y);
+        return r ? r * sortDir : a.i - b.i;
+      });
+    };
+    // Search covers what is shown on the page, never hidden columns.
+    var searchable = cols.map(function (c, i) { return has(cfg.hide, c) ? -1 : i; }).filter(function (i) { return i >= 0; });
+    var haystack = function (row) {
+      return searchable.map(function (i) { return row.cells[i]; }).join(' ').toLowerCase();
+    };
 
     // Dropdown filters
     var selects = {};
@@ -255,14 +328,15 @@ const config = {
       var body = $('[data-body]');
       body.textContent = '';
       var shown = 0;
-      data.rows.forEach(function (row, i) {
+      order(data.rows).forEach(function (item) {
+        var row = item.row, i = item.i;
         if (warmOnly && !row.warm) return;
         if (activeOnly && empty(cell(row, cfg.activeField))) return;
         for (var c in selects) {
           var v = selects[c].value;
           if (v && !has(parts(cell(row, c)), v)) return;
         }
-        if (q && row.cells.join(' ').toLowerCase().indexOf(q) < 0) return;
+        if (q && haystack(row).indexOf(q) < 0) return;
         shown++;
         var isOpen = openIndex === i;
 
