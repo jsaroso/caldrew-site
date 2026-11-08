@@ -36,3 +36,5 @@ button.cd-lang-toggle {
 }
 .cd-login-back { margin-top: 12px; }
 .cd-login-error[hidden] { display: none; }
+
+.cd-login-code { letter-spacing: .3em; font-size: 20px; }

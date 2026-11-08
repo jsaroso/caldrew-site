@@ -1,6 +1,7 @@
 ---
 // Branded sign-in page for the private Press area (same layout as the old Webflow login page).
-// The Worker serves this at /press and /pt/press when the visitor is not signed in.
+// The Worker (worker/press.js) serves it at /press and /pt/press when the visitor is not signed in.
+// Two steps on one page: ask for the email; then (?sent=1) offer the 6-digit code.
 const { lang = 'en' } = Astro.props;
 const pt = lang === 'pt';
 const c = pt
@@ -8,15 +9,25 @@ const c = pt
       aside: 'Compramos e desenvolvemos empresas ibéricas com um horizonte de longo prazo.',
       eyebrow: 'Área reservada',
       title: 'Inicie sessão para continuar.',
-      lede: 'Esta área é reservada a imprensa e parceiros da Caldrew. Utilize o email e a palavra-passe que recebeu de nós.',
+      lede: 'Esta área é reservada a imprensa e parceiros da Caldrew. Introduza o seu email e enviamos-lhe um link de acesso.',
       email: 'Email',
       emailPh: 'O seu email',
-      password: 'Palavra-passe',
-      passwordPh: 'A sua palavra-passe',
-      button: 'Continuar',
-      wait: 'A verificar…',
-      error: 'O email e a palavra-passe não correspondem. Tente novamente ou escreva para enquiries@caldrew.com.',
-      tooMany: 'Demasiadas tentativas. Aguarde um minuto e tente novamente.',
+      send: 'Enviar link',
+      sending: 'A enviar…',
+      sentTitle: 'Verifique o seu email.',
+      sentLede: 'Se este endereço tiver acesso, enviámos-lhe um link de acesso. Abra-o neste ou noutro dispositivo, ou introduza aqui o código de 6 dígitos que vem no mesmo email.',
+      code: 'Código',
+      codePh: '000000',
+      verify: 'Continuar',
+      checking: 'A verificar…',
+      other: 'Usar outro email',
+      errors: {
+        email: 'Introduza um endereço de email válido.',
+        code: 'Esse código não está correto ou já expirou. Tente novamente ou peça um novo link.',
+        expired: 'Esse link ou código expirou. Peça um novo abaixo.',
+        wait: 'Demasiadas tentativas. Aguarde um minuto e tente novamente.',
+        send: 'Não foi possível enviar o email. Tente novamente ou escreva para enquiries@caldrew.com.',
+      },
       noAccess: 'Ainda não tem acesso?',
       request: 'Peça acesso',
       subject: 'Pedido de acesso à área de imprensa',
@@ -26,21 +37,32 @@ const c = pt
       aside: 'We buy and build Iberian companies for the long term.',
       eyebrow: 'Private area',
       title: 'Sign in to continue.',
-      lede: 'This area is reserved for press and partners of Caldrew. Use the email and password you received from us.',
+      lede: 'This area is reserved for press and partners of Caldrew. Enter your email and we will send you a sign-in link.',
       email: 'Email',
       emailPh: 'Your email',
-      password: 'Password',
-      passwordPh: 'Your password',
-      button: 'Continue',
-      wait: 'Checking…',
-      error: 'That email and password don’t match. Try again, or write to enquiries@caldrew.com.',
-      tooMany: 'Too many attempts. Wait a minute and try again.',
+      send: 'Send link',
+      sending: 'Sending…',
+      sentTitle: 'Check your email.',
+      sentLede: 'If this address has access, we have sent you a sign-in link. Open it on this or any other device, or enter the 6-digit code from the same email here.',
+      code: 'Code',
+      codePh: '000000',
+      verify: 'Continue',
+      checking: 'Checking…',
+      other: 'Use a different email',
+      errors: {
+        email: 'Enter a valid email address.',
+        code: 'That code is not right or has expired. Try again, or ask for a new link.',
+        expired: 'That link or code has expired. Ask for a new one below.',
+        wait: 'Too many attempts. Wait a minute and try again.',
+        send: 'We could not send the email. Try again, or write to enquiries@caldrew.com.',
+      },
       noAccess: 'No access yet?',
       request: 'Request access',
       subject: 'Press area access request',
       home: 'Back to the website',
     };
 const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subject)}`;
+const self = pt ? '/pt/press' : '/press';
 ---
 <div class="cd-login-wrap">
   <div class="cd-login-aside">
@@ -49,32 +71,50 @@ const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subjec
     <p class="cd-login-aside-note">Caldrew, S.A. Rua Castilho, 32 - 4, 1250-070 Lisboa</p>
   </div>
   <div class="cd-login-panel">
-    <form class="cd-login-form" method="post" action="/press/signin" data-press-login>
-      <input type="hidden" name="lang" value={lang} />
+    <div class="cd-login-form">
       <p class="cd-login-eyebrow">{c.eyebrow}</p>
-      <h2 class="cd-login-title">{c.title}</h2>
-      <p class="cd-login-lede">{c.lede}</p>
-      <label for="press-email" class="cd-login-label">{c.email}</label>
-      <input class="cd-login-input w-input" id="press-email" name="email" type="email" autocomplete="username" placeholder={c.emailPh} required maxlength="256" />
-      <label for="press-pass" class="cd-login-label">{c.password}</label>
-      <input class="cd-login-input w-input" id="press-pass" name="password" type="password" autocomplete="current-password" placeholder={c.passwordPh} required maxlength="256" />
-      <input type="submit" class="cd-login-button w-button" value={c.button} data-wait={c.wait} />
-      <div class="cd-login-error" role="alert" data-error="1" hidden>{c.error}</div>
-      <div class="cd-login-error" role="alert" data-error="wait" hidden>{c.tooMany}</div>
+
+      <form method="post" action="/press/signin" data-step="email">
+        <input type="hidden" name="lang" value={lang} />
+        <h2 class="cd-login-title">{c.title}</h2>
+        <p class="cd-login-lede">{c.lede}</p>
+        <label for="press-email" class="cd-login-label">{c.email}</label>
+        <input class="cd-login-input w-input" id="press-email" name="email" type="email" autocomplete="email" placeholder={c.emailPh} required maxlength="256" />
+        <input type="submit" class="cd-login-button w-button" value={c.send} data-wait={c.sending} />
+      </form>
+
+      <form method="post" action="/press/code" data-step="code" hidden>
+        <input type="hidden" name="lang" value={lang} />
+        <h2 class="cd-login-title">{c.sentTitle}</h2>
+        <p class="cd-login-lede">{c.sentLede}</p>
+        <label for="press-code" class="cd-login-label">{c.code}</label>
+        <input class="cd-login-input w-input cd-login-code" id="press-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" placeholder={c.codePh} required />
+        <input type="submit" class="cd-login-button w-button" value={c.verify} data-wait={c.checking} />
+        <p class="cd-login-foot"><a href={self}>{c.other}</a></p>
+      </form>
+
+      {Object.entries(c.errors).map(([key, msg]) => (
+        <div class="cd-login-error" role="alert" data-error={key} hidden>{msg}</div>
+      ))}
       <p class="cd-login-foot">{c.noAccess} <a href={mail}>{c.request}</a>.</p>
       <p class="cd-login-foot cd-login-back"><a href={pt ? '/pt' : '/'}>{c.home}</a></p>
-    </form>
+    </div>
   </div>
 </div>
 <script is:inline>
   (function () {
-    var err = new URLSearchParams(location.search).get('error');
-    var box = err && document.querySelector('[data-error="' + err + '"]');
+    var q = new URLSearchParams(location.search);
+    if (q.has('sent')) {
+      document.querySelector('[data-step="email"]').hidden = true;
+      document.querySelector('[data-step="code"]').hidden = false;
+    }
+    var box = q.get('error') && document.querySelector('[data-error="' + q.get('error') + '"]');
     if (box) box.hidden = false;
-    var f = document.querySelector('[data-press-login]');
-    f.addEventListener('submit', function () {
-      var b = f.querySelector('[type=submit]');
-      b.value = b.getAttribute('data-wait');
+    document.querySelectorAll('form[data-step]').forEach(function (f) {
+      f.addEventListener('submit', function () {
+        var b = f.querySelector('[type=submit]');
+        b.value = b.getAttribute('data-wait');
+      });
     });
   })();
 </script>

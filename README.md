@@ -57,31 +57,42 @@ Optional Turnstile:
 ## Press (private area)
 
 `/press` and `/pt/press` are private. Visitors who are not signed in see a branded sign-in page
-(`src/components/PressGate.astro`, same layout as the old Webflow login page) asking for their
-email and password, with a "Request access" link to enquiries@caldrew.com.
+(`src/components/PressGate.astro`, same layout as the old Webflow login page). They enter their
+email; if it is on the list, they receive an email with a sign-in link and a 6-digit code
+(either works, for 15 minutes). The page answers the same way for every address, so it never
+reveals who has access. Logic: `worker/press.js`.
 
-- Each person has their own password. Only PBKDF2 hashes are stored, in `press-users.json`.
-- Sign-in sets a signed cookie valid for 30 days (`PRESS_SESSION_SECRET`, a Worker secret).
-- Removing someone from `press-users.json` ends their access immediately, even mid-session.
-- Max 10 sign-in attempts per minute per IP (Workers rate limiting binding).
-- Sign out: `/press/signout`.
-
-Managing access:
+- The list is `press-users.json`. Removing someone ends their access immediately, even mid-session.
+- Sessions last 30 days (signed cookie, `PRESS_SESSION_SECRET`).
+- Links can be opened more than once within 15 minutes, because corporate mail scanners
+  (Outlook, Mimecast) open links before people do.
+- Limits: 10 attempts per minute per IP; 3 emails per minute per address.
 
 ```bash
-node scripts/press-user.mjs add name@example.com      # prints a new password once
+node scripts/press-user.mjs add name@example.com
 node scripts/press-user.mjs remove name@example.com
 node scripts/press-user.mjs list
 ```
 
-Commit `press-users.json` and push; the site redeploys. `add` on an existing email resets the password.
+Commit `press-users.json` and push; the site redeploys.
 
-One-time setup per Worker: set the session secret (any long random string):
+### Sending the sign-in emails (Google Workspace)
 
-```bash
-npx wrangler secret put PRESS_SESSION_SECRET                 # production
-npx wrangler secret put PRESS_SESSION_SECRET --env staging   # staging
-```
+Emails are sent through the Gmail API as one caldrew.com mailbox (`PRESS_MAIL_FROM` in
+`wrangler.jsonc`), with an OAuth refresh token limited to `gmail.send` for that mailbox only.
+Revoke it any time: that account > Google Account > Security > Third-party access > Caldrew website.
+
+Worker secrets (Cloudflare > Workers > caldrew-site > Settings > Variables and Secrets,
+type "Secret"; the same on caldrew-site-staging):
+
+| Name | Value |
+|---|---|
+| `PRESS_SESSION_SECRET` | any long random string |
+| `GOOGLE_CLIENT_ID` | OAuth client ID (Google Cloud > Caldrew website > Clients) |
+| `GOOGLE_CLIENT_SECRET` | OAuth client secret |
+| `GOOGLE_REFRESH_TOKEN` | from the OAuth Playground, signed in as the sending mailbox |
+
+Local development: put `DEV_PRINT_EMAILS=1` in `.dev.vars` to log emails instead of sending them.
 
 ## Staging (next.caldrew.com)
 

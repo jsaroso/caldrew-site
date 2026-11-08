@@ -19,12 +19,16 @@
     "CONTACT_TO": "enquiries@caldrew.com",
     // Must be an address on a domain with Email Routing enabled (see README).
     "CONTACT_FROM": "website@notify.caldrew.com",
+    // Google Workspace mailbox that sends Press sign-in emails (see README).
+    "PRESS_MAIL_FROM": ""
   },
-  // Press sign-in: max 10 attempts per minute per IP.
+  // Press sign-in: 10 attempts per minute per IP, 3 emails per minute per address.
   "ratelimits": [
-    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "MAIL_LIMITER", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } }
   ],
-  // Secret (not in this file): PRESS_SESSION_SECRET. See README.
+  // Secrets (not in this file): PRESS_SESSION_SECRET, GOOGLE_CLIENT_ID,
+  // GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN. See README.
   "observability": { "enabled": true },
   // Staging: deployed from the `staging` branch with `wrangler deploy --env staging`,
   // served at next.caldrew.com behind Cloudflare Access (see README).
@@ -38,10 +42,12 @@
       "vars": {
         "STAGING": "1",
         "CONTACT_TO": "enquiries@caldrew.com",
-        "CONTACT_FROM": "website@notify.caldrew.com"
+        "CONTACT_FROM": "website@notify.caldrew.com",
+        "PRESS_MAIL_FROM": ""
       },
       "ratelimits": [
-        { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+        { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+        { "name": "MAIL_LIMITER", "namespace_id": "1004", "simple": { "limit": 3, "period": 60 } }
       ],
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
     }
