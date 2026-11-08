@@ -43,6 +43,11 @@ Requirements (one-time, Cloudflare dashboard):
 2. **Verify `enquiries@caldrew.com` as a destination address**
    (Email Routing > Destination addresses). Click the link in the confirmation email.
 
+**Never enable Email Routing for caldrew.com itself.** Mail for caldrew.com is hosted on
+Google Workspace. Cloudflare's Email Routing page shows caldrew.com as "misconfigured";
+that is expected. Clicking "Add records" or "Fix" there would replace the Google MX records
+and break every caldrew.com mailbox.
+
 Optional Turnstile:
 
 1. Turnstile > Add widget for `www.caldrew.com` and `caldrew.com`.
