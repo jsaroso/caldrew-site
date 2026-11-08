@@ -14,8 +14,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // caldrew.com -> www.caldrew.com (the canonical address)
-    if (url.hostname === 'caldrew.com') {
+    // caldrew.com -> www.caldrew.com (the canonical address). The workers.dev address only
+    // keeps /api/ (older copies of the sheet script publish there); everything else redirects.
+    if (url.hostname === 'caldrew.com' || (url.hostname.endsWith('.workers.dev') && !url.pathname.startsWith('/api/'))) {
       return Response.redirect(`https://www.caldrew.com${url.pathname}${url.search}`, 301);
     }
 

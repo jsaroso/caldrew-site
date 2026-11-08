@@ -11,7 +11,7 @@
  */
 
 const CONFIG = {
-  url: 'https://caldrew-site.jsaroso.workers.dev/api/sync/fundraising',
+  url: 'https://www.caldrew.com/api/sync/fundraising',
   sheet: 'Owners',
   headerRow: 4, // row with the column titles; data starts on the next row
 };

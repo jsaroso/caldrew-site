@@ -42,6 +42,8 @@
   "observability": { "enabled": true },
   // caldrew.com and www.caldrew.com are Workers Custom Domains: Cloudflare manages their DNS
   // records and certificates. caldrew.com redirects to www (worker/index.js).
+  // workers.dev stays on for /api/ only (see worker/index.js).
+  "workers_dev": true,
   "routes": [
     { "pattern": "www.caldrew.com", "custom_domain": true },
     { "pattern": "caldrew.com", "custom_domain": true }
