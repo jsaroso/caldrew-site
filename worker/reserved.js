@@ -1,56 +1,115 @@
-// Private Press area: email-only sign-in with a link or a 6-digit code.
+// Reserved area: email-only sign-in (link or 6-digit code) and per-email sections.
 //
-//   GET  /press, /pt/press   signed in -> press kit; otherwise the branded sign-in page (401)
-//   POST /press/signin       email -> if it is on the list, emails a sign-in link + code.
-//                            Always answers the same way, so the page never reveals who has access.
-//   GET  /press/verify?t=    the link from the email (reusable for 15 minutes, because corporate
-//                            mail scanners open links before people do)
-//   POST /press/code         the 6-digit code, typed on the device that asked for it
-//   GET  /press/signout      clears the session
+// Pages (English; the same under /pt/...):
+//   /reserved                  hub, shows only the sections this person may open
+//   /reserved/<section>        press | fundraising | dealflow
+//   /reserved/files/<section>/<file>   protected downloads, same permission as the section
+// Actions:
+//   POST /reserved/signin      email -> if it has access, emails a sign-in link + code.
+//                              Always answers the same way, so the page never reveals who has access.
+//   GET  /reserved/verify?t=   the link from the email (reusable for 15 minutes, because corporate
+//                              mail scanners open links before people do)
+//   POST /reserved/code        the 6-digit code, typed on the device that asked for it
+//   GET  /reserved/signout
+// Old /press URLs redirect to /reserved/press.
 //
-// Who has access: press-users.json (a list of emails), managed with scripts/press-user.mjs.
+// Who sees what: reserved-users.json, {"name@example.com": ["press", "dealflow"]}, managed with
+// scripts/reserved-user.mjs. Read on every request, so changes apply immediately, even mid-session.
 // Everything is signed with the PRESS_SESSION_SECRET secret; without it nobody gets in.
 // No database: links, codes and sessions are self-contained signed tokens.
-import PRESS_USERS from '../press-users.json';
+// Every sign-in and page view is logged (Workers Logs): who, what, when.
+import USERS from '../reserved-users.json';
 import { sendMail } from './mail.js';
 
-const SESSION = 'caldrew_press';
-const PENDING = 'caldrew_press_pending';
+export const SECTIONS = ['press', 'fundraising', 'dealflow'];
+const SESSION = 'caldrew_reserved';
+const PENDING = 'caldrew_reserved_pending';
 const SESSION_DAYS = 30;
 const LINK_MINUTES = 15;
 
-export function isPress(path) {
-  return /^\/(pt\/)?press(\.html|\/.*)?$/.test(path);
+export function isReserved(path) {
+  return /^\/(pt\/)?(reserved|press)(\.html|\/.*)?$/.test(path);
 }
 
-export async function handlePress(request, env, url) {
-  const pt = url.pathname.startsWith('/pt/') || url.searchParams.get('lang') === 'pt';
-  const home = pt ? '/pt/press' : '/press';
-  const p = url.pathname;
+export async function handleReserved(request, env, url) {
+  const path = url.pathname.replace(/\.html$/, '').replace(/\/$/, '');
+  const pt = path.startsWith('/pt/');
+  const base = pt ? '/pt/reserved' : '/reserved';
 
-  if (p === '/press/signin' && request.method === 'POST') return requestLink(request, env, url);
-  if (p === '/press/code' && request.method === 'POST') return checkCode(request, env);
-  if (p === '/press/verify') return verifyLink(env, url);
-  if (p === '/press/signout') return redirect(pt ? '/pt' : '/', clear(SESSION));
-  if (p.startsWith('/press/')) return redirect(home);
+  // Old Press URLs
+  if (/^\/(pt\/)?press$/.test(path)) return redirect(`${base}/press`, null, 301);
+  if (/^\/(pt\/)?press\//.test(path)) return redirect(base, null, 301);
+
+  // Actions
+  if (path === '/reserved/signin' && request.method === 'POST') return requestLink(request, env, url);
+  if (path === '/reserved/code' && request.method === 'POST') return checkCode(request, env);
+  if (path === '/reserved/verify') return verifyLink(env, url);
+  if (path === '/reserved/signout') return redirect(pt ? '/pt' : '/', clear(SESSION));
+
+  // Pages and files
+  const rest = path.slice(base.length).replace(/^\//, ''); // '', 'press', 'files/press/x.pdf', ...
+  const [first, second] = rest.split('/');
+  const isFile = first === 'files';
+  const section = isFile ? second : first || null;
 
   const session = await readSigned(env, readCookie(request, SESSION), 'session');
-  const signedIn = Boolean(session && hasAccess(session.e));
-  const page = signedIn ? home : pt ? '/pt/press-login' : '/press-login';
-  const res = await env.ASSETS.fetch(new Request(new URL(page, url), request));
+  const sections = session ? sectionsFor(session.e) : [];
+
+  if (!sections.length) {
+    if (isFile) return new Response('Not found', { status: 404 });
+    return page(env, url, `${base}/sign-in`, 401);
+  }
+  if (first === 'sign-in' || first === 'no-access') return redirect(base);
+  if (section && !SECTIONS.includes(section)) {
+    const res = await env.ASSETS.fetch(new Request(new URL('/404', url)));
+    return privateResponse(res, 404);
+  }
+  if (section && !sections.includes(section)) {
+    log('denied', session.e, section);
+    return isFile ? new Response('Forbidden', { status: 403 }) : page(env, url, `${base}/no-access`, 403, session.e, sections);
+  }
+
+  log(isFile ? 'download' : 'view', session.e, isFile ? rest : section || 'hub');
+  if (isFile) {
+    const res = await env.ASSETS.fetch(new Request(new URL(`/reserved/${rest}`, url), request));
+    return privateResponse(res, res.status);
+  }
+  return page(env, url, section ? `${base}/${section}` : base, 200, session.e, sections);
+}
+
+// Serve a built page, hiding sections this person may not open and showing who is signed in.
+async function page(env, url, target, status, email, sections = []) {
+  const res = await env.ASSETS.fetch(new Request(new URL(target, url)));
+  const out = new HTMLRewriter()
+    .on('[data-section]', {
+      element(el) {
+        if (!sections.includes(el.getAttribute('data-section'))) el.remove();
+      },
+    })
+    .on('[data-user-email]', {
+      element(el) {
+        if (email) el.setInnerContent(email);
+      },
+    })
+    .transform(res);
+  return privateResponse(out, res.ok ? status : res.status);
+}
+
+function privateResponse(res, status) {
   const headers = new Headers(res.headers);
   headers.set('Cache-Control', 'private, no-store');
   headers.set('X-Robots-Tag', 'noindex, nofollow');
-  return new Response(res.body, { status: signedIn ? res.status : 401, headers });
+  return new Response(res.body, { status, headers });
 }
 
-// ---------- steps ----------
+// ---------- sign-in steps ----------
 
 async function requestLink(request, env, url) {
   const form = await request.formData().catch(() => null);
-  if (!form) return redirect('/press');
+  if (!form) return redirect('/reserved');
   const lang = form.get('lang') === 'pt' ? 'pt' : 'en';
-  const back = lang === 'pt' ? '/pt/press' : '/press';
+  const next = safeNext(form.get('next'), lang);
+  const back = lang === 'pt' ? '/pt/reserved' : '/reserved';
   const email = String(form.get('email') || '').trim().toLowerCase().slice(0, 256);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return redirect(`${back}?error=email`);
 
@@ -58,14 +117,15 @@ async function requestLink(request, env, url) {
   if (!(await allowed(env.MAIL_LIMITER, `mail:${email}`))) return redirect(`${back}?error=wait`);
 
   const exp = now() + LINK_MINUTES * 60;
-  const pending = await sign(env, { t: 'pending', e: email, exp, l: lang });
+  const pending = await sign(env, { t: 'pending', e: email, exp, l: lang, n: next });
 
-  if (hasAccess(email)) {
-    const link = `${url.origin}/press/verify?t=${await sign(env, { t: 'link', e: email, exp, l: lang })}`;
+  if (sectionsFor(email).length) {
+    const link = `${url.origin}/reserved/verify?t=${await sign(env, { t: 'link', e: email, exp, l: lang, n: next })}`;
     try {
       await sendMail(env, signInEmail(env, { to: email, lang, link, code: await codeFor(env, email, exp) }));
+      log('link-sent', email);
     } catch (err) {
-      console.error('press sign-in email failed', err);
+      console.error('reserved sign-in email failed', err);
       return redirect(`${back}?error=send`);
     }
   }
@@ -77,31 +137,40 @@ async function checkCode(request, env) {
   const form = await request.formData().catch(() => null);
   const pending = await readSigned(env, readCookie(request, PENDING), 'pending');
   const lang = pending?.l === 'pt' || form?.get('lang') === 'pt' ? 'pt' : 'en';
-  const back = lang === 'pt' ? '/pt/press' : '/press';
+  const back = lang === 'pt' ? '/pt/reserved' : '/reserved';
   if (!pending) return redirect(`${back}?error=expired`);
   if (!(await allowed(env.LOGIN_LIMITER, `ip:${ip(request)}`))) return redirect(`${back}?sent=1&error=wait`);
 
   const code = String(form?.get('code') || '').replace(/\D/g, '');
   const expected = await codeFor(env, pending.e, pending.exp);
-  if (!hasAccess(pending.e) || code.length !== 6 || !safeEqual(code, expected)) {
+  if (!sectionsFor(pending.e).length || code.length !== 6 || !safeEqual(code, expected)) {
+    log('code-failed', pending.e);
     return redirect(`${back}?sent=1&error=code`);
   }
-  return startSession(env, pending.e, back, true);
+  return startSession(env, pending.e, pending.n || back, true);
 }
 
 async function verifyLink(env, url) {
   const link = await readSigned(env, url.searchParams.get('t'), 'link');
-  const back = link?.l === 'pt' ? '/pt/press' : '/press';
-  if (!link || !hasAccess(link.e)) return redirect(`${back}?error=expired`);
-  return startSession(env, link.e, back, false);
+  const back = link?.l === 'pt' ? '/pt/reserved' : '/reserved';
+  if (!link || !sectionsFor(link.e).length) return redirect(`${back}?error=expired`);
+  return startSession(env, link.e, link.n || back, false);
 }
 
-async function startSession(env, email, back, clearPending) {
+async function startSession(env, email, next, clearPending) {
+  log('signin', email);
   const token = await sign(env, { t: 'session', e: email, exp: now() + SESSION_DAYS * 86400 });
-  const headers = new Headers({ Location: back, 'Cache-Control': 'no-store' });
+  const headers = new Headers({ Location: next, 'Cache-Control': 'no-store' });
   headers.append('Set-Cookie', cookie(SESSION, token, SESSION_DAYS * 86400));
   if (clearPending) headers.append('Set-Cookie', clear(PENDING));
   return new Response(null, { status: 303, headers });
+}
+
+// Only allow returning to a reserved page on this site.
+function safeNext(value, lang) {
+  const v = String(value || '');
+  if (/^\/(pt\/)?reserved(\/[a-z0-9-]+)?$/.test(v) && !/(sign-in|no-access|signin|signout|verify|code)$/.test(v)) return v;
+  return lang === 'pt' ? '/pt/reserved' : '/reserved';
 }
 
 // ---------- email ----------
@@ -110,16 +179,16 @@ function signInEmail(env, { to, lang, link, code }) {
   const pt = lang === 'pt';
   const t = pt
     ? {
-        subject: 'O seu acesso à área de imprensa da Caldrew',
-        intro: 'Use o botão abaixo para entrar na área de imprensa da Caldrew.',
+        subject: 'O seu acesso à área reservada da Caldrew',
+        intro: 'Use o botão abaixo para entrar na área reservada da Caldrew.',
         button: 'Entrar',
         or: 'Ou introduza este código na página onde o pediu:',
         valid: `O link e o código são válidos durante ${LINK_MINUTES} minutos.`,
         ignore: 'Se não pediu este acesso, pode ignorar este email.',
       }
     : {
-        subject: 'Your sign-in link for Caldrew press',
-        intro: 'Use the button below to open the Caldrew press area.',
+        subject: 'Your sign-in link for Caldrew',
+        intro: 'Use the button below to open the Caldrew reserved area.',
         button: 'Sign in',
         or: 'Or enter this code on the page where you asked for it:',
         valid: `The link and code are valid for ${LINK_MINUTES} minutes.`,
@@ -141,8 +210,9 @@ function signInEmail(env, { to, lang, link, code }) {
 
 // ---------- access list, tokens, codes ----------
 
-function hasAccess(email) {
-  return Array.isArray(PRESS_USERS) && PRESS_USERS.includes(email);
+function sectionsFor(email) {
+  const list = Object.prototype.hasOwnProperty.call(USERS, email) ? USERS[email] : [];
+  return Array.isArray(list) ? list.filter((s) => SECTIONS.includes(s)) : [];
 }
 
 async function codeFor(env, email, exp) {
@@ -176,6 +246,10 @@ async function hmac(env, message) {
 }
 
 // ---------- helpers ----------
+
+function log(event, email, detail) {
+  console.log(JSON.stringify({ reserved: event, email, detail, at: new Date().toISOString() }));
+}
 
 async function allowed(limiter, key) {
   if (!limiter) return true;
@@ -212,8 +286,8 @@ function readCookie(request, name) {
 const cookie = (name, value, maxAge) => `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 const clear = (name) => cookie(name, '', 0);
 
-function redirect(location, setCookie) {
+function redirect(location, setCookie, status = 303) {
   const headers = new Headers({ Location: location, 'Cache-Control': 'no-store' });
   if (setCookie) headers.set('Set-Cookie', setCookie);
-  return new Response(null, { status: 303, headers });
+  return new Response(null, { status, headers });
 }

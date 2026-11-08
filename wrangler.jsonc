@@ -9,22 +9,22 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
     // Everything else is served as static files without running the Worker.
-    "run_worker_first": ["/api/*", "/press", "/press/*", "/press.html", "/pt/press", "/pt/press/*", "/pt/press.html"]
+    "run_worker_first": ["/api/*", "/reserved", "/reserved/*", "/reserved.html", "/pt/reserved", "/pt/reserved/*", "/pt/reserved.html", "/press", "/press/*", "/press.html", "/pt/press", "/pt/press/*", "/pt/press.html"]
   },
   // Cloudflare Email Routing "send_email" binding. Can only deliver to verified addresses.
   "send_email": [
     { "name": "SEND_EMAIL", "destination_address": "enquiries@caldrew.com" },
-    // Cloudflare Email Sending: Press sign-in emails to anyone on the list, only from this sender.
+    // Cloudflare Email Sending: reserved-area sign-in emails to anyone on the list, only from this sender.
     { "name": "PRESS_EMAIL", "allowed_sender_addresses": ["noreply@notify.caldrew.com"] }
   ],
   "vars": {
     "CONTACT_TO": "enquiries@caldrew.com",
     // Must be an address on a domain with Email Routing enabled (see README).
     "CONTACT_FROM": "website@notify.caldrew.com",
-    // Sender of the Press sign-in emails (Cloudflare Email Sending).
+    // Sender of the reserved-area sign-in emails (Cloudflare Email Sending).
     "PRESS_MAIL_FROM": "noreply@notify.caldrew.com"
   },
-  // Press sign-in: 10 attempts per minute per IP, 3 emails per minute per address.
+  // Reserved-area sign-in: 10 attempts per minute per IP, 3 emails per minute per address.
   "ratelimits": [
     { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
     { "name": "MAIL_LIMITER", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } }

@@ -1,0 +1,66 @@
+---
+// Shared layout for the reserved hub, the no-access page and the sections without bespoke content.
+//   kind: 'hub' | 'no-access' | 'section'
+import Base from '../layouts/Base.astro';
+import ReservedBar from './ReservedBar.astro';
+import { r, SECTIONS } from '../reserved-i18n.js';
+const { lang = 'en', kind = 'hub', section = null } = Astro.props;
+const c = r[lang];
+const s = section ? c.sections[section] : null;
+const title = kind === 'hub' ? c.area : kind === 'no-access' ? c.area : s.name;
+const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.noAccessSubject)}`;
+---
+<Base lang={lang} noindex title={`Caldrew | ${title}`}>
+  <ReservedBar lang={lang} current={kind === 'section' ? section : null} />
+
+  {kind === 'hub' && (
+    <>
+      <section class="cd-page-header"><div class="cd-container">
+        <p class="cd-eyebrow">{c.area}</p>
+        <h1 class="cd-page-title">{c.hubTitle}</h1>
+        <p class="cd-lede">{c.hubLede}</p>
+      </div></section>
+      <section class="cd-section-tight"><div class="cd-container">
+        <div class="cd-grid cd-rhub">
+          {SECTIONS.map((key) => (
+            <a href={`${c.base}/${key}`} class="cd-card cd-rhub-card" data-section={key}>
+              <h2 class="cd-card-title">{c.sections[key].name}</h2>
+              <p class="cd-body">{c.sections[key].summary}</p>
+              <span class="cd-rhub-open">{c.open}</span>
+            </a>
+          ))}
+        </div>
+      </div></section>
+    </>
+  )}
+
+  {kind === 'no-access' && (
+    <section class="cd-page-header"><div class="cd-container">
+      <p class="cd-eyebrow">{c.area}</p>
+      <h1 class="cd-page-title">{c.noAccessTitle}</h1>
+      <p class="cd-lede">{c.noAccessLede}</p>
+      <p class="cd-rempty-actions">
+        <a href={mail} class="cd-cta-tight">{c.noAccessCta}</a>
+        <a href={c.base} class="cd-cta-tight">{c.backToHub}</a>
+      </p>
+    </div></section>
+  )}
+
+  {kind === 'section' && (
+    <>
+      <section class="cd-page-header"><div class="cd-container">
+        <p class="cd-eyebrow">{s.name}</p>
+        <h1 class="cd-page-title">{s.title}</h1>
+        <p class="cd-lede">{s.lede}</p>
+      </div></section>
+      <section class="cd-numbered"><div class="cd-container">
+        <slot>
+          <div class="cd-rempty">
+            <h2 class="cd-press-h2">{c.emptyTitle}</h2>
+            <p class="cd-body">{c.emptyBody}</p>
+          </div>
+        </slot>
+      </div></section>
+    </>
+  )}
+</Base>

@@ -54,31 +54,47 @@ Optional Turnstile:
 2. Set the site key at build time: `PUBLIC_TURNSTILE_SITE_KEY` (Workers Builds > Variables).
 3. Set the secret on the Worker: `npx wrangler secret put TURNSTILE_SECRET`.
 
-## Press (private area)
+## Reserved area
 
-`/press` and `/pt/press` are private. Visitors who are not signed in see a branded sign-in page
-(`src/components/PressGate.astro`, same layout as the old Webflow login page). They enter their
-email; if it is on the list, they receive an email with a sign-in link and a 6-digit code
-(either works, for 15 minutes). The page answers the same way for every address, so it never
-reveals who has access. Logic: `worker/press.js`.
+`/reserved` (and `/pt/reserved`) is private. Each person has access to one or more sections:
 
-- The list is `press-users.json`. Removing someone ends their access immediately, even mid-session.
+| Section | URL | Content |
+|---|---|---|
+| Press | `/reserved/press` | Press kit (`src/pages/reserved/press.astro`) |
+| Fundraising | `/reserved/fundraising` | `src/pages/reserved/fundraising.astro` |
+| Dealflow | `/reserved/dealflow` | `src/pages/reserved/dealflow.astro` |
+
+How it works (`worker/reserved.js`):
+
+- Sign-in is email only: the visitor enters their email; if it is on the list they receive an email
+  with a sign-in link and a 6-digit code (either works, for 15 minutes). The page answers the same
+  way for every address, so it never reveals who has access.
+- After signing in, visitors return to the page they asked for. The hub and the bar at the top only
+  show the sections that person may open; any other section shows a "no access" page.
+- Permissions are read on every request: changes apply immediately, even mid-session.
 - Sessions last 30 days (signed cookie, `PRESS_SESSION_SECRET`).
-- Links can be opened more than once within 15 minutes, because corporate mail scanners
-  (Outlook, Mimecast) open links before people do.
+- Protected downloads go in `public/reserved/files/<section>/` and are linked as
+  `/reserved/files/<section>/<file>`. They need the same permission as the section.
+- Every sign-in, page view, download and refused access is logged with the email and time
+  (Cloudflare > Workers > caldrew-site > Logs; filter on `reserved`).
+- Old `/press` links redirect to `/reserved/press`.
 - Limits: 10 attempts per minute per IP; 3 emails per minute per address.
 
+Managing access (`reserved-users.json`):
+
 ```bash
-node scripts/press-user.mjs add name@example.com
-node scripts/press-user.mjs remove name@example.com
-node scripts/press-user.mjs list
+node scripts/reserved-user.mjs set name@example.com press dealflow   # replaces their sections
+node scripts/reserved-user.mjs add name@example.com fundraising      # adds sections
+node scripts/reserved-user.mjs revoke name@example.com dealflow      # removes sections
+node scripts/reserved-user.mjs remove name@example.com               # removes the person
+node scripts/reserved-user.mjs list
 ```
 
-Commit `press-users.json` and push; the site redeploys.
+Commit `reserved-users.json` and push; the site redeploys.
 
 ### Sending the sign-in emails
 
-Sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,
+Reserved-area sign-in emails are sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,
 with replies going to enquiries@caldrew.com. The `PRESS_EMAIL` binding may only send from that
 address. `notify.caldrew.com` has its own DKIM key and a DMARC `reject` policy. No personal
 mailbox or third-party account is involved.

@@ -1,6 +1,7 @@
 ---
-// Branded sign-in page for the private Press area (same layout as the old Webflow login page).
-// The Worker (worker/press.js) serves it at /press and /pt/press when the visitor is not signed in.
+// Branded sign-in page for the reserved area (same layout as the old Webflow login page).
+// The Worker (worker/reserved.js) serves it at any /reserved URL when the visitor is not signed in,
+// and sends them back to that URL after signing in.
 // Two steps on one page: ask for the email; then (?sent=1) offer the 6-digit code.
 const { lang = 'en' } = Astro.props;
 const pt = lang === 'pt';
@@ -9,7 +10,7 @@ const c = pt
       aside: 'Compramos e desenvolvemos empresas ibéricas com um horizonte de longo prazo.',
       eyebrow: 'Área reservada',
       title: 'Inicie sessão para continuar.',
-      lede: 'Esta área é reservada a imprensa e parceiros da Caldrew. Introduza o seu email e enviamos-lhe um link de acesso.',
+      lede: 'Esta área é reservada a parceiros, investidores e imprensa da Caldrew. Introduza o seu email e enviamos-lhe um link de acesso.',
       email: 'Email',
       emailPh: 'O seu email',
       send: 'Enviar link',
@@ -30,14 +31,14 @@ const c = pt
       },
       noAccess: 'Ainda não tem acesso?',
       request: 'Peça acesso',
-      subject: 'Pedido de acesso à área de imprensa',
+      subject: 'Pedido de acesso à área reservada',
       home: 'Voltar ao site',
     }
   : {
       aside: 'We buy and build Iberian companies for the long term.',
       eyebrow: 'Private area',
       title: 'Sign in to continue.',
-      lede: 'This area is reserved for press and partners of Caldrew. Enter your email and we will send you a sign-in link.',
+      lede: 'This area is reserved for partners, investors and press of Caldrew. Enter your email and we will send you a sign-in link.',
       email: 'Email',
       emailPh: 'Your email',
       send: 'Send link',
@@ -58,11 +59,11 @@ const c = pt
       },
       noAccess: 'No access yet?',
       request: 'Request access',
-      subject: 'Press area access request',
+      subject: 'Reserved area access request',
       home: 'Back to the website',
     };
 const mail = `mailto:enquiries@caldrew.com?subject=${encodeURIComponent(c.subject)}`;
-const self = pt ? '/pt/press' : '/press';
+const self = pt ? '/pt/reserved' : '/reserved';
 ---
 <div class="cd-login-wrap">
   <div class="cd-login-aside">
@@ -74,8 +75,9 @@ const self = pt ? '/pt/press' : '/press';
     <div class="cd-login-form">
       <p class="cd-login-eyebrow">{c.eyebrow}</p>
 
-      <form method="post" action="/press/signin" data-step="email">
+      <form method="post" action="/reserved/signin" data-step="email">
         <input type="hidden" name="lang" value={lang} />
+        <input type="hidden" name="next" value="" data-next />
         <h2 class="cd-login-title">{c.title}</h2>
         <p class="cd-login-lede">{c.lede}</p>
         <label for="press-email" class="cd-login-label">{c.email}</label>
@@ -83,14 +85,14 @@ const self = pt ? '/pt/press' : '/press';
         <input type="submit" class="cd-login-button w-button" value={c.send} data-wait={c.sending} />
       </form>
 
-      <form method="post" action="/press/code" data-step="code" hidden>
+      <form method="post" action="/reserved/code" data-step="code" hidden>
         <input type="hidden" name="lang" value={lang} />
         <h2 class="cd-login-title">{c.sentTitle}</h2>
         <p class="cd-login-lede">{c.sentLede}</p>
         <label for="press-code" class="cd-login-label">{c.code}</label>
         <input class="cd-login-input w-input cd-login-code" id="press-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" placeholder={c.codePh} required />
         <input type="submit" class="cd-login-button w-button" value={c.verify} data-wait={c.checking} />
-        <p class="cd-login-foot"><a href={self}>{c.other}</a></p>
+        <p class="cd-login-foot"><a href={self} data-other>{c.other}</a></p>
       </form>
 
       {Object.entries(c.errors).map(([key, msg]) => (
@@ -110,6 +112,9 @@ const self = pt ? '/pt/press' : '/press';
     }
     var box = q.get('error') && document.querySelector('[data-error="' + q.get('error') + '"]');
     if (box) box.hidden = false;
+    // Come back to the page that was asked for (the Worker only accepts reserved pages).
+    document.querySelector('[data-next]').value = location.pathname;
+    document.querySelector('[data-other]').href = location.pathname;
     document.querySelectorAll('form[data-step]').forEach(function (f) {
       f.addEventListener('submit', function () {
         var b = f.querySelector('[type=submit]');

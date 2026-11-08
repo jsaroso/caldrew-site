@@ -2,9 +2,9 @@
 // Static pages are served straight from ./dist. The Worker only runs for the
 // routes listed in wrangler.jsonc (run_worker_first):
 //   - POST /api/contact  -> emails the contact form to enquiries@caldrew.com
-//   - /press, /pt/press  -> private press kit, email sign-in link or code (worker/press.js)
+//   - /reserved/...      -> reserved area: email sign-in, per-email sections (worker/reserved.js)
 import { EmailMessage } from 'cloudflare:email';
-import { isPress, handlePress } from './press.js';
+import { isReserved, handleReserved } from './reserved.js';
 
 export default {
   async fetch(request, env) {
@@ -15,7 +15,7 @@ export default {
       return handleContact(request, env);
     }
 
-    if (isPress(url.pathname)) return handlePress(request, env, url);
+    if (isReserved(url.pathname)) return handleReserved(request, env, url);
 
     return env.ASSETS.fetch(request);
   },

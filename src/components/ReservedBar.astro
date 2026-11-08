@@ -1,0 +1,21 @@
+---
+// Sub-navigation shown on every reserved page. The Worker removes tabs the visitor
+// may not open (data-section) and fills in who is signed in (data-user-email).
+import { r, SECTIONS } from '../reserved-i18n.js';
+const { lang = 'en', current = null } = Astro.props;
+const c = r[lang];
+---
+<div class="cd-rbar">
+  <div class="cd-rbar-inner">
+    <a href={c.base} class:list={['cd-rbar-home', { 'is-current': current === null }]}>{c.area}</a>
+    <nav class="cd-rbar-tabs" aria-label={c.area}>
+      {SECTIONS.map((s) => (
+        <a href={`${c.base}/${s}`} data-section={s} class:list={['cd-rbar-tab', { 'is-current': current === s }]} aria-current={current === s ? 'page' : undefined}>{c.sections[s].name}</a>
+      ))}
+    </nav>
+    <div class="cd-rbar-user">
+      <span class="cd-rbar-email" data-user-email></span>
+      <a href="/reserved/signout" class="cd-rbar-signout">{c.signOut}</a>
+    </div>
+  </div>
+</div>

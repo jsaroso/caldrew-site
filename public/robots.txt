@@ -1,4 +1,6 @@
 User-agent: *
+Disallow: /reserved
+Disallow: /pt/reserved
 Disallow: /press
 Disallow: /pt/press
 Sitemap: https://www.caldrew.com/sitemap.xml
