@@ -129,11 +129,14 @@ Local development: emails are written to `.wrangler/tmp/email/` instead of being
 
 ## Staging (next.caldrew.com)
 
-Separate Worker `caldrew-site-staging`, deployed from the `staging` branch with
-`npx wrangler deploy --env staging`. The whole of next.caldrew.com is behind the Cloudflare
-Access application "Caldrew Staging" (email one-time code), so drafts stay private and are
-never indexed. Add reviewers in Zero Trust > Access > Applications > Caldrew Staging > Policies.
-Contact form emails sent from staging are prefixed "[Staging]".
+Separate Worker `caldrew-site-staging`, deployed automatically from the `staging` branch
+(`npx wrangler deploy --env staging`). Workflow: changes go to `staging`, are reviewed on
+next.caldrew.com, then merged to `main` for www.caldrew.com.
+
+- Every page requires sign-in with the same Caldrew sign-in page and email as the reserved area,
+  worded as a preview. Who can sign in: `staging-users.json`.
+- Staging reads the live reserved-area data but cannot change it (no `SYNC_SECRET`, no digests).
+- Never indexed (`X-Robots-Tag: noindex`). Contact form emails are prefixed "[Staging]".
 
 ## Domains (cutover from Webflow: 8 November 2026)
 
