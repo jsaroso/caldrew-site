@@ -42,7 +42,8 @@ export async function handleSync(request, env, dataset) {
   const data = { ...clean, updatedAt: new Date().toISOString() };
   await env.RESERVED_KV.put(`data:${dataset}`, JSON.stringify(data));
 
-  const changes = previous ? diff(previous, data, DATASETS[dataset].watch) : [];
+  // Only compare versions of the same tab (e.g. the demo data never triggers a digest).
+  const changes = previous && previous.sheet === data.sheet ? diff(previous, data, DATASETS[dataset].watch) : [];
   if (changes.length) {
     const log = JSON.parse((await env.RESERVED_KV.get(`changes:${dataset}`)) || '[]');
     await env.RESERVED_KV.put(`changes:${dataset}`, JSON.stringify([...log, ...changes].slice(-MAX_LOG)));
