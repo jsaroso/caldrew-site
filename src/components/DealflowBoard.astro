@@ -1,0 +1,388 @@
+---
+// Dealflow section: renders the synced "Deal Flow Pipeline" spreadsheet (worker/sync.js, dataset
+// "dealflow"). The Worker fills <script id="reserved-data"> on every request:
+//   { columns, rows }                  the Pipeline tab (one row per opportunity, keyed by ID)
+//   extra.activity / questions / lists  the Activity Log, Questions & Decisions and Lists tabs
+// Layout: headline numbers, stage funnel, partner-decision strip, Live / Closed tabs, deal panel.
+// Columns are read by their sheet header, so reordering the sheet does not break the page.
+const { lang = 'en' } = Astro.props;
+const pt = lang === 'pt';
+const t = pt
+  ? {
+      reviewed: 'Analisadas', live: 'Ativas', nda: 'Chegaram a NDA', analysis: 'Em análise ou além', offer: 'Em fase de oferta',
+      funnel: 'Pipeline por fase', reached: 'chegaram', liveNow: 'ativas',
+      decisions: 'Aguardam decisão dos sócios', waiting: 'há {n} d',
+      tabLive: 'Ativas', tabClosed: 'Encerradas',
+      search: 'Pesquisar', searchPh: 'Empresa, setor, pessoa…', all: 'Todas', stage: 'Fase', source: 'Origem', ball: 'Do lado de',
+      cOpp: 'Oportunidade', cStage: 'Fase', cBall: 'Do lado de', cNext: 'Próximo passo', cEbitda: 'EBITDA (M€)', cUpd: 'Atualizado',
+      cFurthest: 'Fase máxima', cStatus: 'Estado', cLast: 'Última atualização',
+      where: 'Ponto de situação', next: 'Próximo passo', ballWith: 'Do lado de', thesis: 'Encaixe na tese', numbers: 'Números',
+      ebitda: 'EBITDA (M€)', basis: 'Base', revenue: 'Receita (M€)', situation: 'Situação', first: 'Primeiro registo',
+      sourceT: 'Origem', channel: 'Canal', introduced: 'Apresentado por', contacts: 'Contactos', notes: 'Comentários',
+      partner: 'Comentários dos sócios', duarte: 'Notas do Duarte', priority: 'Prioridade', facts: 'Factos-chave',
+      activity: 'Atividade', questions: 'Questões em aberto', reason: 'Motivo', noActivity: 'Sem atividade registada.',
+      showing: 'A mostrar {n} de {total}', none: 'Ainda não há informação disponível.', noMatch: 'Nenhum resultado para estes filtros.',
+      updated: 'Última atualização: {date}', days: '{n} d', today: 'hoje',
+    }
+  : {
+      reviewed: 'Reviewed', live: 'Live', nda: 'Reached NDA', analysis: 'In analysis or beyond', offer: 'At offer stage',
+      funnel: 'Pipeline by stage', reached: 'reached', liveNow: 'live',
+      decisions: 'Waiting on a partner decision', waiting: '{n}d waiting',
+      tabLive: 'Live', tabClosed: 'Closed',
+      search: 'Search', searchPh: 'Company, sector, person…', all: 'All', stage: 'Stage', source: 'Source', ball: 'Ball with',
+      cOpp: 'Opportunity', cStage: 'Stage', cBall: 'Ball with', cNext: 'Next step', cEbitda: 'EBITDA (€M)', cUpd: 'Updated',
+      cFurthest: 'Furthest stage', cStatus: 'Status', cLast: 'Last update',
+      where: 'Where it stands', next: 'Next step', ballWith: 'Ball with', thesis: 'Thesis fit', numbers: 'Numbers',
+      ebitda: 'EBITDA (€M)', basis: 'Basis', revenue: 'Revenue (€M)', situation: 'Situation', first: 'First record',
+      sourceT: 'Source', channel: 'Channel', introduced: 'Introduced by', contacts: 'Key contacts', notes: 'Comments',
+      partner: 'Partner comments', duarte: "Duarte's notes", priority: 'Priority', facts: 'Key facts',
+      activity: 'Activity', questions: 'Open questions', reason: 'Reason passed', noActivity: 'No activity logged yet.',
+      showing: 'Showing {n} of {total}', none: 'No information available yet.', noMatch: 'Nothing matches these filters.',
+      updated: 'Last updated {date}', days: '{n}d', today: 'today',
+    };
+---
+<div class="cd-df" data-dealflow>
+  <div class="cd-df-kpis" data-kpis></div>
+  <div class="cd-df-top">
+    <section class="cd-df-funnel"><h2 class="cd-df-h">{t.funnel}</h2><div data-funnel></div></section>
+    <section class="cd-df-decisions" data-decisions-wrap hidden><h2 class="cd-df-h">{t.decisions}</h2><div class="cd-df-cards" data-decisions></div></section>
+  </div>
+
+  <div class="cd-df-tabs" role="tablist">
+    <button type="button" role="tab" class="cd-df-tab is-on" data-tab="live"></button>
+    <button type="button" role="tab" class="cd-df-tab" data-tab="closed"></button>
+  </div>
+
+  <div class="cd-st-bar">
+    <label class="cd-st-search"><span class="cd-st-label">{t.search}</span><input type="search" placeholder={t.searchPh} data-q /></label>
+    <div class="cd-st-filters">
+      <label class="cd-st-select"><span class="cd-st-label">{t.stage}</span><select data-f="stage"></select></label>
+      <label class="cd-st-select"><span class="cd-st-label">{t.source}</span><select data-f="source"></select></label>
+      <label class="cd-st-select" data-live-only><span class="cd-st-label">{t.ball}</span><select data-f="ball"></select></label>
+    </div>
+  </div>
+  <p class="cd-st-meta"><span data-count></span><span data-synced></span></p>
+  <div class="cd-st-scroll"><table class="cd-st-table cd-df-table"><thead><tr data-head></tr></thead><tbody data-body></tbody></table></div>
+  <p class="cd-st-empty" data-empty hidden></p>
+</div>
+<script is:inline id="reserved-data" type="application/json">null</script>
+<script is:inline type="application/json" id="dealflow-i18n" set:html={JSON.stringify({ t, lang })}></script>
+<script is:inline>
+  (function () {
+    var root = document.querySelector('[data-dealflow]');
+    var cfg = JSON.parse(document.getElementById('dealflow-i18n').textContent);
+    var t = cfg.t;
+    var data = JSON.parse(document.getElementById('reserved-data').textContent || 'null');
+    var $ = function (s) { return root.querySelector(s); };
+    var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    var empty = function (v) { v = String(v == null ? '' : v).trim(); return !v || v === '-' || v === 'n/d'; };
+
+    if (!data || !data.rows || !data.rows.length) {
+      root.textContent = '';
+      root.appendChild(el('p', 'cd-st-empty', t.none));
+      return;
+    }
+
+    // ---------- data ----------
+    var C = data.columns;
+    var col = function (name) { return C.indexOf(name); };
+    var get = function (row, name) { var i = col(name); return i < 0 ? '' : String(row.cells[i] || '').trim(); };
+    var deals = data.rows.map(function (r) {
+      var stage = get(r, 'Furthest stage reached');
+      var n = parseInt(get(r, 'Stage #') || stage, 10) || 0;
+      var status = get(r, 'Status');
+      return {
+        row: r, id: get(r, 'ID'), name: get(r, 'Opportunity'), stage: stage, n: n, status: status,
+        live: !/^(declined|not pursued)$/i.test(status),
+        ball: get(r, 'Ball with'), next: get(r, 'Next step'), source: get(r, 'Source channel'),
+        ebitda: get(r, 'EBITDA (EUR M)'), days: parseInt(get(r, 'Days since update'), 10),
+        last: get(r, 'Last update'), reason: get(r, 'Reason passed'),
+        search: r.cells.join(' ').toLowerCase(),
+      };
+    });
+    var extra = data.extra || {};
+    var activity = extra.activity || { columns: [], rows: [] };
+    var questions = extra.questions || { columns: [], rows: [] };
+    var lists = extra.lists || { columns: [], rows: [] };
+    var xcell = function (tbl, row, name) { var i = tbl.columns.indexOf(name); return i < 0 ? '' : String(row.cells[i] || '').trim(); };
+    var stages = lists.rows.map(function (r) { return xcell(lists, r, 'Stage'); }).filter(Boolean);
+    if (!stages.length) {
+      var seen = {};
+      deals.forEach(function (d) { if (d.stage) seen[d.stage] = d.n; });
+      stages = Object.keys(seen).sort(function (a, b) { return seen[a] - seen[b]; });
+    }
+    var stageNum = function (s) { return parseInt(s, 10) || 0; };
+    var maxStage = stages.length || 8;
+
+    // ---------- headline numbers ----------
+    var liveDeals = deals.filter(function (d) { return d.live; });
+    var kpis = [
+      [deals.length, t.reviewed], [liveDeals.length, t.live],
+      [deals.filter(function (d) { return d.n >= 3; }).length, t.nda],
+      [deals.filter(function (d) { return d.n >= 4; }).length, t.analysis],
+      [deals.filter(function (d) { return d.n >= 5; }).length, t.offer],
+    ];
+    kpis.forEach(function (k) {
+      var b = el('div', 'cd-df-kpi');
+      b.appendChild(el('div', 'cd-df-kpi-n', String(k[0])));
+      b.appendChild(el('div', 'cd-df-kpi-l', k[1]));
+      $('[data-kpis]').appendChild(b);
+    });
+
+    // ---------- funnel ----------
+    stages.forEach(function (s) {
+      var n = stageNum(s);
+      var reached = deals.filter(function (d) { return d.n >= n; }).length;
+      var liveHere = liveDeals.filter(function (d) { return d.n === n; }).length;
+      var line = el('div', 'cd-df-fl' + (reached ? '' : ' is-zero'));
+      line.appendChild(el('div', 'cd-df-fl-label', s));
+      var track = el('div', 'cd-df-fl-track');
+      var bar = el('div', 'cd-df-fl-bar');
+      bar.style.width = (deals.length ? Math.max(reached ? 2 : 0, Math.round((reached / deals.length) * 100)) : 0) + '%';
+      track.appendChild(bar);
+      line.appendChild(track);
+      line.appendChild(el('div', 'cd-df-fl-n', reached + ' ' + t.reached + (liveHere ? ' · ' + liveHere + ' ' + t.liveNow : '')));
+      $('[data-funnel]').appendChild(line);
+    });
+
+    // ---------- partner decisions ----------
+    var pending = liveDeals.filter(function (d) { return /partner decision/i.test(d.ball); });
+    if (pending.length) {
+      $('[data-decisions-wrap]').hidden = false;
+      pending.sort(function (a, b) { return b.n - a.n; }).forEach(function (d) {
+        var c = el('button', 'cd-df-card');
+        c.type = 'button';
+        c.appendChild(el('div', 'cd-df-card-name', d.name));
+        c.appendChild(el('div', 'cd-df-card-stage', d.stage));
+        c.appendChild(el('div', 'cd-df-card-next', d.next));
+        if (!isNaN(d.days)) c.appendChild(el('div', 'cd-df-card-days', t.waiting.replace('{n}', d.days)));
+        c.addEventListener('click', function () { tab = 'live'; openId = d.id; resetFilters(); render(); scrollToOpen(); });
+        $('[data-decisions]').appendChild(c);
+      });
+    }
+
+    // ---------- filters ----------
+    var options = function (list) { var o = {}; list.forEach(function (v) { if (!empty(v)) o[v] = 1; }); return Object.keys(o).sort(); };
+    var fill = function (name, values) {
+      var s = root.querySelector('[data-f="' + name + '"]');
+      s.textContent = '';
+      s.appendChild(new Option(t.all, ''));
+      values.forEach(function (v) { s.appendChild(new Option(v, v)); });
+      s.addEventListener('change', render);
+      return s;
+    };
+    var fStage = fill('stage', stages.length ? stages : options(deals.map(function (d) { return d.stage; })));
+    var fSource = fill('source', options(deals.map(function (d) { return d.source; })));
+    var fBall = fill('ball', options(liveDeals.map(function (d) { return d.ball; })));
+    var resetFilters = function () { fStage.value = ''; fSource.value = ''; fBall.value = ''; $('[data-q]').value = ''; };
+
+    var fmt = new Intl.DateTimeFormat(cfg.lang === 'pt' ? 'pt-PT' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    $('[data-synced]').textContent = t.updated.replace('{date}', fmt.format(new Date(data.updatedAt)));
+
+    // ---------- helpers for cells ----------
+    var linkify = function (parent, text) {
+      var re = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})|(\+\d[\d\s]{7,}\d)/gi, last = 0, m;
+      while ((m = re.exec(text))) {
+        if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+        var a = el('a', 'cd-st-link', m[0]);
+        a.href = m[1] ? 'mailto:' + m[1] : 'tel:' + m[2].replace(/\s/g, '');
+        a.addEventListener('click', function (e) { e.stopPropagation(); });
+        parent.appendChild(a);
+        last = m.index + m[0].length;
+      }
+      if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+      return parent;
+    };
+    var dots = function (n) {
+      var w = el('span', 'cd-df-dots');
+      for (var i = 1; i <= maxStage; i++) w.appendChild(el('i', i <= n ? 'on' : ''));
+      return w;
+    };
+    var field = function (label, value) {
+      if (empty(value)) return null;
+      var f = el('div', 'cd-st-field');
+      f.appendChild(el('div', 'cd-st-flabel', label));
+      var v = el('div', 'cd-st-fvalue');
+      String(value).split('\n').forEach(function (l, i) { if (i) v.appendChild(el('br')); linkify(v, l); });
+      f.appendChild(v);
+      return f;
+    };
+    var group = function (title, fields) {
+      fields = fields.filter(Boolean);
+      if (!fields.length) return null;
+      var g = el('section', 'cd-st-group');
+      g.appendChild(el('div', 'cd-st-gtitle', title));
+      fields.forEach(function (f) { g.appendChild(f); });
+      return g;
+    };
+
+    // ---------- deal panel ----------
+    function panel(d) {
+      var r = d.row;
+      var p = el('div', 'cd-st-panel cd-df-panel');
+      var left = el('div', 'cd-st-activity');
+
+      var now = el('div', 'cd-df-now');
+      now.appendChild(el('div', 'cd-st-gtitle', t.where));
+      var w = el('div', 'cd-df-now-text');
+      linkify(w, get(r, 'Where it stands'));
+      now.appendChild(w);
+      [[t.next, d.next], [t.ballWith, d.ball], [t.reason, d.reason]].forEach(function (x) { var f = field(x[0], x[1]); if (f) now.appendChild(f); });
+      left.appendChild(now);
+
+      left.appendChild(el('div', 'cd-st-gtitle cd-df-gap', t.activity));
+      var events = activity.rows.filter(function (a) { return xcell(activity, a, 'ID') === d.id; });
+      if (events.length) {
+        var ol = el('ol', 'cd-st-timeline');
+        events.forEach(function (a, i) {
+          var li = el('li', i === events.length - 1 ? 'is-latest' : '');
+          li.appendChild(el('span', 'cd-df-date', xcell(activity, a, 'Date')));
+          linkify(li, xcell(activity, a, 'Event'));
+          ol.appendChild(li);
+        });
+        left.appendChild(ol);
+      } else {
+        left.appendChild(el('p', 'cd-st-muted', t.noActivity));
+      }
+
+      var open = questions.rows.filter(function (q) {
+        return xcell(questions, q, 'Opportunity') === d.id && !/^answered$/i.test(xcell(questions, q, 'Status'));
+      });
+      if (open.length) {
+        left.appendChild(el('div', 'cd-st-gtitle cd-df-gap', t.questions));
+        var ul = el('ul', 'cd-st-list');
+        open.forEach(function (q) { ul.appendChild(linkify(el('li'), xcell(questions, q, 'Question'))); });
+        left.appendChild(ul);
+      }
+      p.appendChild(left);
+
+      var right = el('div', 'cd-st-groups');
+      [
+        group(t.thesis, [field('', get(r, 'Thesis rationale (vs Tese de Investimento)'))]),
+        group(t.numbers, [field(t.ebitda, d.ebitda), field(t.basis, get(r, 'EBITDA basis')), field(t.revenue, get(r, 'Revenue (EUR M)')), field(t.situation, get(r, 'Situation / what is offered')), field(t.first, get(r, 'First record'))]),
+        group(t.notes, [field(t.partner, get(r, 'Partner comments')), field(t.duarte, get(r, "Duarte's notes")), field(t.priority, get(r, 'Priority'))]),
+        group(t.sourceT, [field(t.channel, d.source), field(t.introduced, get(r, 'Introduced by')), field(t.contacts, get(r, 'Key contacts'))]),
+        group(t.facts, [field('', get(r, 'Key facts'))]),
+      ].forEach(function (g) { if (g) right.appendChild(g); });
+      p.appendChild(right);
+      // The thesis text reads better across the full width of its group.
+      right.querySelectorAll('.cd-st-flabel').forEach(function (lab) { if (!lab.textContent) lab.remove(); });
+      return p;
+    }
+
+    // ---------- table ----------
+    var tab = 'live', openId = null;
+    var heads = {
+      live: [[t.cOpp, '34%'], [t.cStage, '20%'], [t.cBall, '13%'], [t.cNext, '19%'], [t.cEbitda, '8%', 'num'], [t.cUpd, '6%', 'num']],
+      closed: [[t.cOpp, '44%'], [t.cFurthest, '28%'], [t.cStatus, '14%'], [t.cLast, '14%', 'num']],
+    };
+    function header() {
+      var h = $('[data-head]');
+      h.textContent = '';
+      heads[tab].forEach(function (x, i) {
+        var th = el('th', x[2] === 'num' ? 'is-num' : '', x[0]);
+        th.style.width = x[1];
+        th.dataset.k = String(i);
+        h.appendChild(th);
+      });
+      root.querySelectorAll('.cd-df-tab').forEach(function (b) {
+        var on = b.dataset.tab === tab;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      root.querySelector('[data-tab="live"]').textContent = t.tabLive + ' (' + liveDeals.length + ')';
+      root.querySelector('[data-tab="closed"]').textContent = t.tabClosed + ' (' + (deals.length - liveDeals.length) + ')';
+      root.querySelector('[data-live-only]').hidden = tab !== 'live';
+    }
+
+    function rowFor(d) {
+      var isOpen = openId === d.id;
+      var tr = el('tr', 'cd-st-row' + (isOpen ? ' is-open' : ''));
+      tr.tabIndex = 0;
+      tr.dataset.id = d.id;
+      tr.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      var first = el('td');
+      var head = el('div', 'cd-st-namewrap');
+      head.appendChild(el('span', 'cd-st-chevron'));
+      var nm = el('div');
+      nm.appendChild(el('span', 'cd-st-name', d.name));
+      nm.appendChild(el('span', 'cd-df-id', d.id + (d.source ? ' · ' + d.source : '')));
+      head.appendChild(nm);
+      first.appendChild(head);
+      tr.appendChild(first);
+      var stageCell = function () { var td = el('td'); td.appendChild(dots(d.n)); td.appendChild(el('span', 'cd-df-stage', d.stage.replace(/^\d+\.\s*/, ''))); return td; };
+      if (tab === 'live') {
+        tr.appendChild(stageCell());
+        var ball = el('td', /partner decision/i.test(d.ball) ? 'cd-df-us' : '', d.ball.replace(/\//g, '/​'));
+        tr.appendChild(ball);
+        tr.appendChild(el('td', 'cd-df-next', d.next));
+        tr.appendChild(el('td', 'is-num', empty(d.ebitda) ? '' : d.ebitda));
+        var upd = el('td', 'is-num' + (d.days > 14 ? ' cd-df-stale' : ''), isNaN(d.days) ? '' : d.days === 0 ? t.today : t.days.replace('{n}', d.days));
+        tr.appendChild(upd);
+      } else {
+        tr.appendChild(stageCell());
+        tr.appendChild(el('td', null, d.status));
+        tr.appendChild(el('td', 'is-num', d.last));
+      }
+      var toggle = function () { openId = isOpen ? null : d.id; render(); };
+      tr.addEventListener('click', toggle);
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+      return tr;
+    }
+
+    function detailRow(d) {
+      var tr = el('tr', 'cd-st-detail');
+      var td = el('td');
+      td.colSpan = Array.prototype.filter.call(root.querySelectorAll('thead th'), function (th) { return getComputedStyle(th).display !== 'none'; }).length;
+      td.appendChild(panel(d));
+      tr.appendChild(td);
+      return tr;
+    }
+
+    function render() {
+      header();
+      var q = $('[data-q]').value.trim().toLowerCase();
+      var list = deals.filter(function (d) {
+        if ((tab === 'live') !== d.live) return false;
+        if (fStage.value && d.stage !== fStage.value) return false;
+        if (fSource.value && d.source !== fSource.value) return false;
+        if (tab === 'live' && fBall.value && d.ball !== fBall.value) return false;
+        if (q && d.search.indexOf(q) < 0) return false;
+        return true;
+      });
+      var body = $('[data-body]');
+      body.textContent = '';
+      if (tab === 'live') {
+        list.sort(function (a, b) { return b.n - a.n || (a.days || 0) - (b.days || 0); });
+        list.forEach(function (d) { body.appendChild(rowFor(d)); if (openId === d.id) body.appendChild(detailRow(d)); });
+      } else {
+        // Closed deals grouped by why we passed, largest group first.
+        var groups = {};
+        list.forEach(function (d) { var k = d.reason || '—'; (groups[k] = groups[k] || []).push(d); });
+        Object.keys(groups).sort(function (a, b) { return groups[b].length - groups[a].length; }).forEach(function (k) {
+          var gr = el('tr', 'cd-df-group');
+          var gtd = el('td', null, k + ' (' + groups[k].length + ')');
+          gtd.colSpan = heads.closed.length;
+          gr.appendChild(gtd);
+          body.appendChild(gr);
+          groups[k].sort(function (a, b) { return b.n - a.n; }).forEach(function (d) { body.appendChild(rowFor(d)); if (openId === d.id) body.appendChild(detailRow(d)); });
+        });
+      }
+      var total = tab === 'live' ? liveDeals.length : deals.length - liveDeals.length;
+      $('[data-count]').textContent = t.showing.replace('{n}', list.length).replace('{total}', total);
+      $('[data-empty]').hidden = list.length > 0;
+      $('[data-empty]').textContent = t.noMatch;
+    }
+    function scrollToOpen() {
+      var r = root.querySelector('.cd-st-row.is-open');
+      if (r) r.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+
+    root.querySelectorAll('.cd-df-tab').forEach(function (b) {
+      b.addEventListener('click', function () { tab = b.dataset.tab; openId = null; render(); });
+    });
+    $('[data-q]').addEventListener('input', render);
+    window.matchMedia('(max-width: 767px)').addEventListener('change', render);
+    render();
+  })();
+</script>

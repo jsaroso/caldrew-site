@@ -1,4 +1,9 @@
 ---
 import ReservedPage from '../../components/ReservedPage.astro';
+import DealflowBoard from '../../components/DealflowBoard.astro';
+// Content: the "Caldrew - Deal Flow Pipeline" spreadsheet, synced from Google Sheets
+// (scripts/apps-script/dealflow-sync.gs -> worker/sync.js).
 ---
-<ReservedPage lang="en" kind="section" section="dealflow" />
+<ReservedPage lang="en" kind="section" section="dealflow">
+  <DealflowBoard lang="en" />
+</ReservedPage>
