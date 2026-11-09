@@ -7,7 +7,8 @@
 //                               changes since the last digest, then clears the log. Nothing is
 //                               sent if nothing changed.
 //
-// Datasets map 1:1 to reserved sections. Only "fundraising" is wired today.
+// Datasets map 1:1 to reserved sections. A dataset can carry extra tabs (e.g. an activity log)
+// next to its main table; only the main table is compared for the digest.
 import { sendMail } from './mail.js';
 import { usersWithSection } from './reserved.js';
 
@@ -16,6 +17,14 @@ export const DATASETS = {
     title: 'Fundraising',
     // Fields whose changes the team hears about, by sheet header.
     watch: ['Stage', 'First contact'],
+  },
+  dealflow: {
+    title: 'Dealflow',
+    watch: ['Furthest stage reached', 'Status', 'Ball with', 'Next step'],
+    // Rows are matched on the ID column; the digest names them by the Opportunity column.
+    nameColumn: 'Opportunity',
+    // Its own upload key (falls back to SYNC_SECRET).
+    secret: 'SYNC_SECRET_DEALFLOW',
   },
 };
 
@@ -27,7 +36,8 @@ export async function handleSync(request, env, dataset) {
   if (!DATASETS[dataset]) return json({ ok: false, error: 'unknown dataset' }, 404);
   if (request.method !== 'POST') return json({ ok: false }, 405);
   const auth = request.headers.get('Authorization') || '';
-  if (!env.SYNC_SECRET || !safeEqual(auth, `Bearer ${env.SYNC_SECRET}`)) return json({ ok: false }, 401);
+  const secret = env[DATASETS[dataset].secret] || env.SYNC_SECRET;
+  if (!secret || !safeEqual(auth, `Bearer ${secret}`)) return json({ ok: false }, 401);
 
   let body;
   try {
@@ -43,7 +53,7 @@ export async function handleSync(request, env, dataset) {
   await env.RESERVED_KV.put(`data:${dataset}`, JSON.stringify(data));
 
   // Only compare versions of the same tab (e.g. the demo data never triggers a digest).
-  const changes = previous && previous.sheet === data.sheet ? diff(previous, data, DATASETS[dataset].watch) : [];
+  const changes = previous && previous.sheet === data.sheet ? diff(previous, data, DATASETS[dataset]) : [];
   if (changes.length) {
     const log = JSON.parse((await env.RESERVED_KV.get(`changes:${dataset}`)) || '[]');
     await env.RESERVED_KV.put(`changes:${dataset}`, JSON.stringify([...log, ...changes].slice(-MAX_LOG)));
@@ -57,20 +67,35 @@ export async function getData(env, dataset) {
   return raw ? JSON.parse(raw) : null;
 }
 
-function validate(body) {
-  if (!body || !Array.isArray(body.columns) || !Array.isArray(body.rows)) return null;
-  if (body.columns.length > 60 || body.rows.length > MAX_ROWS) return null;
-  const str = (v) => String(v ?? '').slice(0, MAX_CELL);
-  const columns = body.columns.map(str);
-  const rows = body.rows
+const str = (v) => String(v ?? '').slice(0, MAX_CELL);
+
+function table(t) {
+  if (!t || !Array.isArray(t.columns) || !Array.isArray(t.rows)) return null;
+  if (t.columns.length > 60 || t.rows.length > MAX_ROWS) return null;
+  const columns = t.columns.map(str);
+  const rows = t.rows
     .filter((r) => r && Array.isArray(r.cells))
     .map((r) => ({ cells: columns.map((_, i) => str(r.cells[i])), warm: Boolean(r.warm) }))
     .filter((r) => r.cells.some((c) => c.trim()));
-  return { sheet: str(body.sheet).slice(0, 100), columns, rows };
+  return { columns, rows };
 }
 
-// Rows are matched on the first column (the decision unit's name).
-function diff(prev, next, watch) {
+function validate(body) {
+  const main = table(body);
+  if (!main) return null;
+  const extra = {};
+  for (const [name, t] of Object.entries(body.extra || {}).slice(0, 10)) {
+    const clean = table(t);
+    if (clean) extra[str(name).slice(0, 40)] = clean;
+  }
+  return { sheet: str(body.sheet).slice(0, 100), ...main, extra };
+}
+
+// Rows are matched on the first column (a name or an ID).
+function diff(prev, next, cfg) {
+  const watch = cfg.watch;
+  const nameAt = cfg.nameColumn ? next.columns.indexOf(cfg.nameColumn) : -1;
+  const label = (r) => (nameAt >= 0 && r.cells[nameAt].trim() ? r.cells[nameAt].trim() : r.cells[0].trim());
   const at = next.updatedAt;
   const key = (r) => r.cells[0].trim();
   const idx = (cols, name) => cols.indexOf(name);
@@ -80,7 +105,7 @@ function diff(prev, next, watch) {
   for (const [k, row] of after) {
     const old = before.get(k);
     if (!old) {
-      out.push({ at, key: k, type: 'added' });
+      out.push({ at, key: label(row), type: 'added' });
       continue;
     }
     for (const field of watch) {
@@ -93,10 +118,10 @@ function diff(prev, next, watch) {
       // For multi-line logs (Stage), report only the lines that are new.
       const oldLines = new Set(a.split('\n').map((l) => l.trim()));
       const added = b.split('\n').map((l) => l.trim()).filter((l) => l && !oldLines.has(l));
-      out.push({ at, key: k, type: 'changed', field, to: added.length ? added.join('\n') : b, from: a });
+      out.push({ at, key: label(row), type: 'changed', field, to: added.length ? added.join('\n') : b, from: a });
     }
   }
-  for (const k of before.keys()) if (!after.has(k)) out.push({ at, key: k, type: 'removed' });
+  for (const [k, row] of before) if (!after.has(k)) out.push({ at, key: label(row), type: 'removed' });
   return out;
 }
 
