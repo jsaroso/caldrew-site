@@ -4,6 +4,7 @@
 //   /reserved                  hub, shows only the sections this person may open
 //   /reserved/<section>        press | fundraising | dealflow
 //   /reserved/files/<section>/<file>   protected downloads, same permission as the section
+//   /reserved/files/dealflow/<id>      deal documents from Google Drive (worker/docs.js)
 // Actions:
 //   POST /reserved/signin      email -> if it has access, emails a sign-in link + code.
 //                              Always answers the same way, so the page never reveals who has access.
@@ -22,6 +23,7 @@ import USERS from '../reserved-users.json';
 import STAGING_USERS from '../staging-users.json';
 import { sendMail, LOGO_CID, EMAIL_HEAD, emailColumn, emailButton } from './mail.js';
 import { DATASETS, getData } from './sync.js';
+import { getDocs, serveDoc } from './docs.js';
 
 export const SECTIONS = ['press', 'fundraising', 'dealflow'];
 const SESSION = 'caldrew_reserved';
@@ -79,12 +81,20 @@ export async function handleReserved(request, env, url) {
     return isFile ? new Response('Forbidden', { status: 403 }) : page(env, url, `${base}/no-access`, 403, session.e, sections);
   }
 
+  if (isFile && DATASETS[section]?.docs) {
+    // /reserved/files/dealflow/<driveId> (the name comes in the download header)
+    const doc = await serveDoc(env, section, rest.split('/')[2] || '', request);
+    if (!doc) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+    log('download', session.e, `${section}: ${doc.file.deals.join(', ')}: ${doc.file.name}`);
+    return doc.response;
+  }
   log(isFile ? 'download' : 'view', session.e, isFile ? rest : section || 'hub');
   if (isFile) {
     const res = await env.ASSETS.fetch(new Request(new URL(`/reserved/${rest}`, url), request));
     return privateResponse(res, res.status);
   }
-  const data = section && DATASETS[section] ? await getData(env, section) : null;
+  let data = section && DATASETS[section] ? await getData(env, section) : null;
+  if (data && DATASETS[section].docs) data = { ...data, docs: await getDocs(env, section) };
   return page(env, url, section ? `${base}/${section}` : base, 200, session.e, sections, data);
 }
 

@@ -131,6 +131,23 @@ plus **Activity Log**, **Questions & Decisions** and **Lists**. Same mechanism a
 with its own key (`SYNC_SECRET_DEALFLOW`). Rows are matched on the ID column; the daily digest
 reports changes to stage, status, ball with and next step, named by opportunity.
 
+**Deal documents.** The same script uploads the files in the Drive folder "Investment
+Opportunities" (Drive id in `CONFIG.docs.folderId`) to the deals they belong to, every hour and
+from the Caldrew menu ("Publish documents now"). The **Documents** tab of the spreadsheet says
+which Drive folder or file goes to which deal: `Drive path | Deal ID | Notes`. The most specific
+path wins, a Deal ID can list several deals (`CD-040, CD-041`), and `-` leaves a path off the
+website. New folders nobody has matched yet are added to the tab with an empty Deal ID and a
+yellow fill. Code files, shortcuts and pipeline snapshots are skipped; files over 25 MB are not
+uploaded.
+
+- Website side: `worker/docs.js`. Files are stored in KV (`doc:dealflow:<driveId>`, list in
+  `docs:dealflow`); only new or changed files are uploaded, and files removed from Drive (or
+  moved to `-`) are deleted from the website on the next run.
+- Visitors download from `/reserved/files/dealflow/<driveId>`, with the same permission as the
+  Dealflow section. Every download is logged with the person's email and the file name.
+- The script needs read-only Drive access: `scripts/apps-script/appsscript.json` is its manifest
+  (Project Settings > Show "appsscript.json" manifest file in editor).
+
 ### Sending the sign-in emails
 
 Reserved-area sign-in emails are sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,

@@ -25,6 +25,8 @@ export const DATASETS = {
     nameColumn: 'Opportunity',
     // Its own upload key (falls back to SYNC_SECRET).
     secret: 'SYNC_SECRET_DEALFLOW',
+    // Deal documents from Google Drive (worker/docs.js).
+    docs: true,
   },
 };
 
