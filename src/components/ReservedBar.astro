@@ -13,10 +13,15 @@ const c = r[lang];
         <a href={`${c.base}/${s}`} data-section={s} class:list={['cd-rbar-tab', { 'is-current': current === s }]} aria-current={current === s ? 'page' : undefined}>{c.sections[s].name}</a>
       ))}
     </nav>
-    <div class="cd-rbar-user">
-      <span class="cd-rbar-email" data-user-email></span>
-      <a href={`${c.base}/settings`} class="cd-rbar-settings">{c.emailUpdates}</a>
-      <a href="/reserved/signout" class="cd-rbar-signout">{c.signOut}</a>
+    <div class="cd-rbar-user w-dropdown" data-dropdown>
+      <button type="button" class="cd-rbar-me w-dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+        <span class="cd-rbar-email" data-user-email></span>
+        <span class="cd-rbar-caret" aria-hidden="true"></span>
+      </button>
+      <nav class="cd-rbar-menu w-dropdown-list">
+        <a href={`${c.base}/settings`} class="cd-rbar-item">{c.emailUpdates}</a>
+        <a href="/reserved/signout" class="cd-rbar-item">{c.signOut}</a>
+      </nav>
     </div>
   </div>
 </div>
