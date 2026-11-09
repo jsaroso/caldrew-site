@@ -96,9 +96,13 @@ node scripts/reserved-user.mjs digest name@example.com all           # digest fo
 node scripts/reserved-user.mjs list
 ```
 
-Commit `reserved-users.json` and push; the site redeploys. By default everyone gets the daily digest
-for each section they can open (Fundraising, Dealflow); the `digest` setting narrows or switches it off
-per person without changing their access.
+Commit `reserved-users.json` and push; the site redeploys.
+
+**Weekly summaries** (Mondays 07:00 UTC, only when something changed): each person chooses which
+summaries they receive at `/reserved/settings` ("Email updates" in the reserved bar; also linked from
+every summary). Their choice is stored in KV and wins over the default; the default is the `digest`
+setting in `reserved-users.json`, or all their sections if it is not set. Staging keeps separate
+preferences.
 
 ### Fundraising: synced from Google Sheets
 
@@ -114,8 +118,8 @@ The sheet publishes itself; nobody copies data by hand.
   then run the setup menu again with the new key.
 - The Worker keeps the latest version in Workers KV (`RESERVED_KV`) and renders it on every
   request, so the page is always current and the data is never a public file.
-- Changes (new or removed rows, Stage and First contact updates) are logged. Every day at
-  07:00 UTC everyone with Fundraising access receives a digest email, only if something changed.
+- Changes (new or removed rows, Stage and First contact updates) are logged. Every Monday at
+  07:00 UTC everyone following Fundraising receives a weekly summary, only if something changed.
 - The page layout (which columns show, filters) is set in `src/pages/reserved/fundraising.astro`.
   New columns in the sheet appear automatically in the expanded row.
 

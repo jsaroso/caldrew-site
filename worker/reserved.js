@@ -64,6 +64,12 @@ export async function handleReserved(request, env, url) {
   if (first === 'sign-in' || first === 'no-access') return redirect(base);
   // One section only: skip the hub and open it directly.
   if (!section && !isFile && sections.length === 1) return redirect(`${base}/${sections[0]}`);
+  if (first === 'settings' && !second) {
+    if (request.method === 'POST') return saveSettings(request, env, session.e, sections, base);
+    const digest = await effectiveDigest(env, session.e);
+    log('view', session.e, 'settings');
+    return page(env, url, `${base}/settings`, 200, session.e, sections, null, digest);
+  }
   if (section && !SECTIONS.includes(section)) {
     const res = await env.ASSETS.fetch(new Request(new URL('/404', url)));
     return privateResponse(res, 404);
@@ -83,14 +89,20 @@ export async function handleReserved(request, env, url) {
 }
 
 // Serve a built page, hiding sections this person may not open and showing who is signed in.
-async function page(env, url, target, status, email, sections = [], data = null) {
+async function page(env, url, target, status, email, sections = [], data = null, digest = null) {
   const res = await env.ASSETS.fetch(new Request(new URL(target, url)));
-  return privateResponse(personalise(res, email, sections, data), res.ok ? status : res.status);
+  return privateResponse(personalise(res, email, sections, data, digest), res.ok ? status : res.status);
 }
 
 // Hide sections this person may not open, show who is signed in, embed synced data.
-function personalise(res, email, sections, data = null) {
+function personalise(res, email, sections, data = null, digest = null) {
   return new HTMLRewriter()
+    .on('input[data-digest]', {
+      element(el) {
+        // Settings page: tick the summaries this person receives.
+        if (digest && digest.includes(el.getAttribute('value'))) el.setAttribute('checked', '');
+      },
+    })
     .on('[data-section]', {
       element(el) {
         if (!sections.includes(el.getAttribute('data-section'))) el.remove();
@@ -323,12 +335,42 @@ function sectionsFor(email) {
   return entry(email).sections.filter((s) => SECTIONS.includes(s));
 }
 
-// Who receives the daily digest for a section: access to it, and the digest not switched off.
-export function digestRecipients(section) {
-  return Object.keys(USERS).filter((e) => {
-    const { digest } = entry(e);
-    return sectionsFor(e).includes(section) && (digest === null || digest.includes(section));
-  });
+// ---------- weekly summary preferences ----------
+// Each person chooses on /reserved/settings which weekly summaries they receive. Their choice is
+// stored in KV and wins over the default in reserved-users.json ("digest"; without it, all their
+// sections). Staging keeps its own copy so reviews never change real preferences.
+const DIGEST_SECTIONS = Object.keys(DATASETS);
+const prefsKey = (env, email) => `${env.STAGING ? 'prefs-staging' : 'prefs'}:${email}`;
+
+export async function effectiveDigest(env, email) {
+  const mine = sectionsFor(email).filter((s) => DIGEST_SECTIONS.includes(s));
+  const saved = await env.RESERVED_KV.get(prefsKey(env, email));
+  if (saved) {
+    try {
+      const { digest } = JSON.parse(saved);
+      if (Array.isArray(digest)) return mine.filter((s) => digest.includes(s));
+    } catch {}
+  }
+  const { digest } = entry(email);
+  return digest === null ? mine : mine.filter((s) => digest.includes(s));
+}
+
+// Who receives the weekly summary for a section.
+export async function digestRecipients(env, section) {
+  const out = [];
+  for (const email of Object.keys(USERS)) {
+    if ((await effectiveDigest(env, email)).includes(section)) out.push(email);
+  }
+  return out;
+}
+
+async function saveSettings(request, env, email, sections, base) {
+  const form = await request.formData().catch(() => null);
+  const chosen = form ? form.getAll('digest').map(String) : [];
+  const digest = sections.filter((s) => DIGEST_SECTIONS.includes(s) && chosen.includes(s));
+  await env.RESERVED_KV.put(prefsKey(env, email), JSON.stringify({ digest, at: new Date().toISOString() }));
+  log('settings', email, digest.join(',') || 'none');
+  return redirect(`${base}/settings?saved=1`);
 }
 
 async function codeFor(env, email, exp) {

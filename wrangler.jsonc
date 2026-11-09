@@ -36,8 +36,8 @@
   ],
   // Synced data for the reserved area (the Google Sheet pushes here) and its change log.
   "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "aa100a6b76a64eb1b2557b5ad73a7224" }],
-  // Daily digest of changes to the team, 07:00 UTC (07:00 Lisbon in winter, 08:00 in summer).
-  "triggers": { "crons": ["0 7 * * *"] },
+  // Weekly summary of changes, Mondays 07:00 UTC (07:00 Lisbon in winter, 08:00 in summer).
+  "triggers": { "crons": ["0 7 * * 1"] },
   // Secrets (not in this file): PRESS_SESSION_SECRET, SYNC_SECRET. See README.
   "observability": { "enabled": true },
   // caldrew.com and www.caldrew.com are Workers Custom Domains: Cloudflare manages their DNS

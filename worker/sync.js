@@ -3,9 +3,9 @@
 //   POST /api/sync/<dataset>    from the Apps Script in the Google Sheet (scripts/apps-script/).
 //                               Authorization: Bearer <SYNC_SECRET>. Stores the latest version
 //                               in KV and records what changed since the previous one.
-//   scheduled (cron, daily)     emails everyone with access to that section a digest of the
-//                               changes since the last digest, then clears the log. Nothing is
-//                               sent if nothing changed.
+//   scheduled (cron, weekly)    emails everyone who follows that section a summary of the week's
+//                               changes, then clears the log. Nothing is sent if nothing changed.
+//                               Who follows what: /reserved/settings (worker/reserved.js).
 //
 // Datasets map 1:1 to reserved sections. A dataset can carry extra tabs (e.g. an activity log)
 // next to its main table; only the main table is compared for the digest.
@@ -131,7 +131,7 @@ export async function sendDigests(env) {
   for (const [dataset, cfg] of Object.entries(DATASETS)) {
     const log = JSON.parse((await env.RESERVED_KV.get(`changes:${dataset}`)) || '[]');
     if (!log.length) continue;
-    const recipients = digestRecipients(dataset);
+    const recipients = await digestRecipients(env, dataset);
     let sent = 0;
     for (const to of recipients) {
       try {
@@ -149,6 +149,7 @@ export async function sendDigests(env) {
 
 function digestEmail(env, { to, dataset, title, log }) {
   const url = `${env.SITE_URL}/reserved/${dataset}`;
+  const settings = `${env.SITE_URL}/reserved/settings`;
   // Group by decision unit, keep the latest entry per field.
   const groups = new Map();
   for (const c of log) {
@@ -158,14 +159,16 @@ function digestEmail(env, { to, dataset, title, log }) {
   const describe = (c) =>
     c.type === 'added' ? 'Added to the list' : c.type === 'removed' ? 'Removed from the list' : `${c.field}: ${c.to}`;
   const n = groups.size;
-  const subject = `${title}: ${n} ${n === 1 ? 'update' : 'updates'}`;
+  const subject = `${title}: this week, ${n} ${n === 1 ? 'update' : 'updates'}`;
 
   const text = [
-    `${title} updates since the last digest:`,
+    `${title}: what changed this week`,
     '',
     ...[...groups].map(([k, cs]) => `${k}\n${cs.map((c) => `  - ${describe(c).replace(/\n/g, '\n    ')}`).join('\n')}`),
     '',
     `Open: ${url}`,
+    '',
+    `Choose which weekly summaries you receive: ${settings}`,
   ].join('\n');
 
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
@@ -182,10 +185,10 @@ ${cs.map((c) => `<div style="font-family:${sans};font-size:14px;line-height:22px
   const body = `
 <tr><td style="padding:0 0 36px"><img src="cid:logo@caldrew" width="168" height="39" alt="Caldrew Capital" style="display:block;width:168px;height:auto;border:0"></td></tr>
 <tr><td style="font-family:${sans};font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#9C7A3A;padding:0 0 10px">${esc(title)}</td></tr>
-<tr><td style="font-family:${serif};font-size:26px;line-height:32px;color:#354D73;padding:0 0 24px">${n} ${n === 1 ? 'update' : 'updates'} since the last digest</td></tr>
+<tr><td style="font-family:${serif};font-size:26px;line-height:32px;color:#354D73;padding:0 0 24px">What changed this week</td></tr>
 ${items}
 <tr><td style="padding:28px 0 32px;border-top:1px solid #D6D3CC">${emailButton(url, `Open ${esc(title)}`)}</td></tr>
-<tr><td style="font-family:${sans};font-size:12px;line-height:20px;color:#7A8794">Confidential. Sent to the Caldrew team members with access to ${esc(title)}.<br>Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>`;
+<tr><td style="font-family:${sans};font-size:12px;line-height:20px;color:#7A8794">Confidential. Weekly summary for Caldrew team members who follow ${esc(title)}.<br><a href="${settings}" style="color:#7A8794;text-decoration:underline">Choose which weekly summaries you receive</a><br><br>Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>`;
   const html = `<!doctype html><html>${EMAIL_HEAD}<body style="margin:0;padding:0;background:#F7F4EE">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#F7F4EE" style="background:#F7F4EE;border-collapse:collapse"><tr><td align="center" style="padding:40px 16px">
 ${emailColumn(560, body)}

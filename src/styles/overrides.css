@@ -325,3 +325,31 @@ html { scrollbar-gutter: stable; }
   .cd-df-group td { display: table-cell !important; }
   .cd-df-panel .cd-st-groups { grid-template-columns: 1fr; }
 }
+
+/* Reserved area: email settings */
+.cd-rbar-settings { opacity: .8; text-transform: uppercase; letter-spacing: .16em; font-size: 12px; }
+.cd-rbar-settings:hover { opacity: 1; }
+.cd-set { max-width: 640px; padding-bottom: 96px; font-family: Inter, sans-serif; color: #213951; }
+.cd-set-saved { margin: 0 0 28px; padding: 14px 18px; background: #fffdf9; border: 1px solid #354d731f; border-left: 3px solid #9c7a3a; font-size: 14px; }
+.cd-set-options { display: grid; gap: 12px; margin: 8px 0 32px; }
+.cd-set-option {
+  display: flex; gap: 16px; align-items: flex-start; cursor: pointer;
+  padding: 18px 20px; background: #fffdf9; border: 1px solid #354d731f; transition: border-color .15s;
+}
+.cd-set-option:hover { border-color: #9c7a3a; }
+.cd-set-option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.cd-set-box { flex: none; width: 18px; height: 18px; margin-top: 3px; border: 1.5px solid #354d73; background: #fff; position: relative; }
+.cd-set-option input:checked + .cd-set-box { background: #354d73; }
+.cd-set-option input:checked + .cd-set-box::after {
+  content: ''; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px;
+  border: solid #f0eee9; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.cd-set-option input:focus-visible + .cd-set-box { outline: 2px solid #9c7a3a; outline-offset: 2px; }
+.cd-set-name { display: block; font-family: 'Cormorant Garamond', serif; font-size: 22px; color: #354d73; line-height: 1.2; }
+.cd-set-desc { display: block; font-size: 13px; line-height: 1.6; color: #4f6577; margin-top: 4px; }
+.cd-set-none { font-size: 15px; color: #4f6577; }
+.cd-set-actions { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+.cd-set-save { width: auto; margin-top: 0; padding-left: 44px; padding-right: 44px; border: 0; cursor: pointer; }
+.cd-set-actions .cd-cta-tight { margin-top: 0; }
+@media (max-width: 767px) { .cd-rbar-settings { flex-basis: auto; } }
+.cd-set [hidden] { display: none !important; }

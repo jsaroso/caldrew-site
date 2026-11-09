@@ -1,0 +1,77 @@
+---
+// Email settings for the reserved area: which weekly summaries this person receives.
+// The Worker removes sections the person cannot open (data-section), ticks their current
+// choices (input[data-digest]) and saves the form (POST /reserved/settings, worker/reserved.js).
+import Base from '../layouts/Base.astro';
+import ReservedBar from './ReservedBar.astro';
+import { r } from '../reserved-i18n.js';
+const { lang = 'en' } = Astro.props;
+const c = r[lang];
+const pt = lang === 'pt';
+const t = pt
+  ? {
+      title: 'Resumos por email.',
+      lede: 'Todas as segundas-feiras de manhã enviamos um resumo curto do que mudou durante a semana nas secções que acompanha. Nas semanas sem alterações, não enviamos nada.',
+      choose: 'Receber o resumo semanal de',
+      desc: { fundraising: 'Novos contactos, mudanças de fase e de responsável no pipeline de LPs.', dealflow: 'Mudanças de fase, de estado, de próximo passo e de quem tem a bola em cada oportunidade.' },
+      save: 'Guardar', saving: 'A guardar…', saved: 'Preferências guardadas.',
+      none: 'Não há resumos semanais para as secções a que tem acesso.',
+      back: 'Voltar à área reservada',
+    }
+  : {
+      title: 'Email updates.',
+      lede: 'Every Monday morning we send a short summary of what changed during the week in the sections you follow. Nothing is sent in a week without changes.',
+      choose: 'Send me the weekly summary for',
+      desc: { fundraising: 'New contacts, stage changes and changes of lead in the LP pipeline.', dealflow: 'Changes of stage, status, next step and who has the ball on each opportunity.' },
+      save: 'Save', saving: 'Saving…', saved: 'Your preferences have been saved.',
+      none: 'There are no weekly summaries for the sections you can open.',
+      back: 'Back to the reserved area',
+    };
+---
+<Base lang={lang} noindex title={`Caldrew | ${c.emailUpdates}`}>
+  <ReservedBar lang={lang} current="settings" />
+  <section class="cd-page-header"><div class="cd-container">
+    <p class="cd-eyebrow">{c.area}</p>
+    <h1 class="cd-page-title">{t.title}</h1>
+    <p class="cd-lede">{t.lede}</p>
+  </div></section>
+  <section class="cd-section-tight"><div class="cd-container">
+    <form class="cd-set" method="post" action={`${c.base}/settings`} data-settings>
+      <p class="cd-set-saved" role="status" data-saved hidden>{t.saved}</p>
+      <p class="cd-st-label">{t.choose}</p>
+      <div class="cd-set-options">
+        {['fundraising', 'dealflow'].map((s) => (
+          <label class="cd-set-option" data-section={s}>
+            <input type="checkbox" name="digest" value={s} data-digest />
+            <span class="cd-set-box" aria-hidden="true"></span>
+            <span>
+              <span class="cd-set-name">{c.sections[s].name}</span>
+              <span class="cd-set-desc">{t.desc[s]}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p class="cd-set-none" data-none hidden>{t.none}</p>
+      <div class="cd-set-actions">
+        <button type="submit" class="cd-login-button w-button cd-set-save" data-wait={t.saving}>{t.save}</button>
+        <a href={c.base} class="cd-cta-tight">{t.back}</a>
+      </div>
+    </form>
+  </div></section>
+</Base>
+<script is:inline>
+  (function () {
+    var f = document.querySelector('[data-settings]');
+    if (!f) return;
+    if (new URLSearchParams(location.search).has('saved')) f.querySelector('[data-saved]').hidden = false;
+    if (!f.querySelector('input[data-digest]')) {
+      f.querySelector('[data-none]').hidden = false;
+      f.querySelector('.cd-set-save').hidden = true;
+      f.querySelector('.cd-st-label').hidden = true;
+    }
+    f.addEventListener('submit', function () {
+      var b = f.querySelector('.cd-set-save');
+      b.textContent = b.getAttribute('data-wait');
+    });
+  })();
+</script>
