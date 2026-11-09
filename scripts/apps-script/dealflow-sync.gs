@@ -132,6 +132,10 @@ function publish_(force) {
 // ---------- documents ----------
 
 function publishDocsNow() {
+  // First use also turns on the hourly upload (the sheet's 15-minute publishing stays as it is).
+  if (!ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction() === 'scheduledDocs')) {
+    ScriptApp.newTrigger('scheduledDocs').timeBased().everyHours(1).create();
+  }
   SpreadsheetApp.getActive().toast('Uploading documents. This can take a few minutes.', 'Caldrew website', 10);
   SpreadsheetApp.getActive().toast(publishDocs_(), 'Caldrew website', 15);
 }
