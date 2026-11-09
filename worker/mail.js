@@ -11,6 +11,30 @@ import LOGO from '../public/images/caldrew-logo.png';
 
 export const LOGO_CID = 'logo@caldrew';
 
+// ---------- building blocks that also render in Outlook for Windows (Word engine) ----------
+
+// <head>: light mode only, and no gaps or hairlines between table cells in Outlook.
+export const EMAIL_HEAD = `<head><meta charset="utf-8"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">
+<!--[if mso]><style>table{border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt}td{mso-line-height-rule:exactly}</style><![endif]-->
+</head>`;
+
+// A centred column of fixed width. Outlook ignores max-width, so it gets a fixed-width table.
+export function emailColumn(width, inner, style = '') {
+  return `<!--[if mso]><table role="presentation" width="${width}" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${width}px;border-collapse:collapse;${style}">${inner}</table>
+<!--[if mso]></td></tr></table><![endif]-->`;
+}
+
+// "Bulletproof" button: colour and padding sit on the table cell, which Outlook respects
+// (it ignores padding on links).
+export function emailButton(href, label) {
+  const sans = 'Helvetica,Arial,sans-serif';
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+<td bgcolor="#354D73" style="background:#354D73;padding:17px 44px;mso-padding-alt:17px 44px">
+<a href="${href}" style="display:inline-block;font-family:${sans};font-size:12px;line-height:16px;letter-spacing:.2em;text-transform:uppercase;color:#F0EEE9;text-decoration:none">${label}</a>
+</td></tr></table>`;
+}
+
 export async function sendMail(env, { from, fromName, replyTo, to, subject, text, html }) {
   const raw = buildMime({ from: `${fromName} <${from}>`, replyTo, to, subject, text, html, domain: from.split('@')[1] });
   await env.PRESS_EMAIL.send(new EmailMessage(from, to, raw));

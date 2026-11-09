@@ -9,7 +9,7 @@
 //
 // Datasets map 1:1 to reserved sections. A dataset can carry extra tabs (e.g. an activity log)
 // next to its main table; only the main table is compared for the digest.
-import { sendMail } from './mail.js';
+import { sendMail, EMAIL_HEAD, emailColumn, emailButton } from './mail.js';
 import { usersWithSection } from './reserved.js';
 
 export const DATASETS = {
@@ -169,24 +169,27 @@ function digestEmail(env, { to, dataset, title, log }) {
   ].join('\n');
 
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  const sans = 'Helvetica,Arial,sans-serif';
+  const serif = "Georgia,'Times New Roman',serif";
   const items = [...groups]
     .map(
       ([k, cs]) => `<tr><td style="padding:14px 0;border-top:1px solid #D6D3CC">
-<div style="font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#354D73;padding:0 0 6px">${esc(k)}</div>
-${cs.map((c) => `<div style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#213951">${esc(describe(c))}</div>`).join('')}
+<div style="font-family:${serif};font-size:18px;line-height:24px;color:#354D73;padding:0 0 6px">${esc(k)}</div>
+${cs.map((c) => `<div style="font-family:${sans};font-size:14px;line-height:22px;color:#213951">${esc(describe(c))}</div>`).join('')}
 </td></tr>`,
     )
     .join('');
-  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#F7F4EE">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F4EE"><tr><td align="center" style="padding:40px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+  const body = `
 <tr><td style="padding:0 0 36px"><img src="cid:logo@caldrew" width="168" height="39" alt="Caldrew Capital" style="display:block;width:168px;height:auto;border:0"></td></tr>
-<tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#9C7A3A;padding:0 0 10px">${esc(title)}</td></tr>
-<tr><td style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:#354D73;padding:0 0 24px">${n} ${n === 1 ? 'update' : 'updates'} since the last digest</td></tr>
+<tr><td style="font-family:${sans};font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#9C7A3A;padding:0 0 10px">${esc(title)}</td></tr>
+<tr><td style="font-family:${serif};font-size:26px;line-height:32px;color:#354D73;padding:0 0 24px">${n} ${n === 1 ? 'update' : 'updates'} since the last digest</td></tr>
 ${items}
-<tr><td style="padding:28px 0 32px;border-top:1px solid #D6D3CC"><a href="${url}" style="display:inline-block;background:#354D73;color:#F0EEE9;font-family:Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:.18em;text-transform:uppercase;text-decoration:none;padding:16px 36px">Open ${esc(title)}</a></td></tr>
-<tr><td style="font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#7A8794">Confidential. Sent to the Caldrew team members with access to ${esc(title)}.<br>Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>
-</table></td></tr></table></body></html>`;
+<tr><td style="padding:28px 0 32px;border-top:1px solid #D6D3CC">${emailButton(url, `Open ${esc(title)}`)}</td></tr>
+<tr><td style="font-family:${sans};font-size:12px;line-height:20px;color:#7A8794">Confidential. Sent to the Caldrew team members with access to ${esc(title)}.<br>Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>`;
+  const html = `<!doctype html><html>${EMAIL_HEAD}<body style="margin:0;padding:0;background:#F7F4EE">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#F7F4EE" style="background:#F7F4EE;border-collapse:collapse"><tr><td align="center" style="padding:40px 16px">
+${emailColumn(560, body)}
+</td></tr></table></body></html>`;
   return { from: env.PRESS_MAIL_FROM, fromName: 'Caldrew', replyTo: 'enquiries@caldrew.com', to, subject, text, html };
 }
 
