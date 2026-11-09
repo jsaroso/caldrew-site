@@ -114,6 +114,14 @@ The sheet publishes itself; nobody copies data by hand.
 - The page layout (which columns show, filters) is set in `src/pages/reserved/fundraising.astro`.
   New columns in the sheet appear automatically in the expanded row.
 
+### Dealflow: synced from Google Sheets
+
+The Dealflow section shows the "Caldrew - Deal Flow Pipeline" spreadsheet: the **Pipeline** tab,
+plus **Activity Log**, **Questions & Decisions** and **Lists**. Same mechanism as Fundraising:
+`scripts/apps-script/dealflow-sync.gs` in that spreadsheet publishes to `POST /api/sync/dealflow`,
+with its own key (`SYNC_SECRET_DEALFLOW`). Rows are matched on the ID column; the daily digest
+reports changes to stage, status, ball with and next step, named by opportunity.
+
 ### Sending the sign-in emails
 
 Reserved-area sign-in emails are sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,
