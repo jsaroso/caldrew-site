@@ -90,10 +90,15 @@ node scripts/reserved-user.mjs set name@example.com press dealflow   # replaces 
 node scripts/reserved-user.mjs add name@example.com fundraising      # adds sections
 node scripts/reserved-user.mjs revoke name@example.com dealflow      # removes sections
 node scripts/reserved-user.mjs remove name@example.com               # removes the person
+node scripts/reserved-user.mjs digest name@example.com fundraising   # daily digest for these sections only
+node scripts/reserved-user.mjs digest name@example.com off           # no digest emails
+node scripts/reserved-user.mjs digest name@example.com all           # digest for all their sections (default)
 node scripts/reserved-user.mjs list
 ```
 
-Commit `reserved-users.json` and push; the site redeploys.
+Commit `reserved-users.json` and push; the site redeploys. By default everyone gets the daily digest
+for each section they can open (Fundraising, Dealflow); the `digest` setting narrows or switches it off
+per person without changing their access.
 
 ### Fundraising: synced from Google Sheets
 

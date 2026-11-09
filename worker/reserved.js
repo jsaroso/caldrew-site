@@ -309,13 +309,26 @@ ${emailColumn(520, `<tr><td style="padding:18px 44px 0;font-family:${sans};font-
 
 // ---------- access list, tokens, codes ----------
 
-export function usersWithSection(section) {
-  return Object.keys(USERS).filter((e) => sectionsFor(e).includes(section));
+// reserved-users.json entries are either a list of sections, or
+//   { "sections": [...], "digest": [...] }   where "digest" lists the sections whose daily digest
+// this person receives ([] = none). Without "digest", they get it for all their sections.
+function entry(email) {
+  const v = Object.prototype.hasOwnProperty.call(USERS, email) ? USERS[email] : null;
+  if (Array.isArray(v)) return { sections: v, digest: null };
+  if (v && typeof v === 'object') return { sections: Array.isArray(v.sections) ? v.sections : [], digest: Array.isArray(v.digest) ? v.digest : null };
+  return { sections: [], digest: null };
 }
 
 function sectionsFor(email) {
-  const list = Object.prototype.hasOwnProperty.call(USERS, email) ? USERS[email] : [];
-  return Array.isArray(list) ? list.filter((s) => SECTIONS.includes(s)) : [];
+  return entry(email).sections.filter((s) => SECTIONS.includes(s));
+}
+
+// Who receives the daily digest for a section: access to it, and the digest not switched off.
+export function digestRecipients(section) {
+  return Object.keys(USERS).filter((e) => {
+    const { digest } = entry(e);
+    return sectionsFor(e).includes(section) && (digest === null || digest.includes(section));
+  });
 }
 
 async function codeFor(env, email, exp) {

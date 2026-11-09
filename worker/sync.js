@@ -10,7 +10,7 @@
 // Datasets map 1:1 to reserved sections. A dataset can carry extra tabs (e.g. an activity log)
 // next to its main table; only the main table is compared for the digest.
 import { sendMail, EMAIL_HEAD, emailColumn, emailButton } from './mail.js';
-import { usersWithSection } from './reserved.js';
+import { digestRecipients } from './reserved.js';
 
 export const DATASETS = {
   fundraising: {
@@ -131,7 +131,7 @@ export async function sendDigests(env) {
   for (const [dataset, cfg] of Object.entries(DATASETS)) {
     const log = JSON.parse((await env.RESERVED_KV.get(`changes:${dataset}`)) || '[]');
     if (!log.length) continue;
-    const recipients = usersWithSection(dataset);
+    const recipients = digestRecipients(dataset);
     let sent = 0;
     for (const to of recipients) {
       try {
