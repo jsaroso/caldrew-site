@@ -20,7 +20,7 @@
 // Every sign-in and page view is logged (Workers Logs): who, what, when.
 import USERS from '../reserved-users.json';
 import STAGING_USERS from '../staging-users.json';
-import { sendMail, LOGO_CID } from './mail.js';
+import { sendMail, LOGO_CID, EMAIL_HEAD, emailColumn, emailButton } from './mail.js';
 import { DATASETS, getData } from './sync.js';
 
 export const SECTIONS = ['press', 'fundraising', 'dealflow'];
@@ -284,30 +284,25 @@ function signInEmail(env, { to, lang, link, code }) {
   const text = `${t.title}\n\n${t.intro}\n\n${link}\n\n${t.or}: ${code}\n\n${t.valid}\n${t.ignore}\n\nCaldrew, S.A.\nRua Castilho, 32 - 4, 1250-070 Lisboa`;
   const sans = "Helvetica,Arial,sans-serif";
   const serif = "Georgia,'Times New Roman',serif";
-  const html = `<!doctype html><html><head><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"></head>
-<body style="margin:0;padding:0;background:#EFEAE1">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EFEAE1"><tr><td align="center" style="padding:48px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#F7F4EE;border-top:3px solid #9C7A3A">
+  const card = `
 <tr><td style="padding:44px 44px 0">
   <img src="cid:${LOGO_CID}" width="168" height="39" alt="Caldrew Capital" style="display:block;width:168px;height:auto;border:0;outline:none;color:#354D73;font-family:${serif};font-size:20px;letter-spacing:.3em">
 </td></tr>
 <tr><td style="padding:40px 44px 0;font-family:${sans};font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#9C7A3A">${t.eyebrow}</td></tr>
-<tr><td style="padding:12px 44px 0;font-family:${serif};font-size:30px;line-height:1.15;color:#354D73">${t.title}</td></tr>
-<tr><td style="padding:18px 44px 0;font-family:${sans};font-size:15px;line-height:1.7;color:#213951">${t.intro}</td></tr>
-<tr><td style="padding:30px 44px 0">
-  <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:#354D73">
-    <a href="${link}" style="display:inline-block;padding:17px 44px;font-family:${sans};font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#F0EEE9;text-decoration:none">${t.button}</a>
-  </td></tr></table>
-</td></tr>
-<tr><td style="padding:36px 44px 10px;font-family:${sans};font-size:13px;line-height:1.6;color:#4F6577">${t.or}</td></tr>
+<tr><td style="padding:12px 44px 0;font-family:${serif};font-size:30px;line-height:36px;color:#354D73">${t.title}</td></tr>
+<tr><td style="padding:18px 44px 0;font-family:${sans};font-size:15px;line-height:25px;color:#213951">${t.intro}</td></tr>
+<tr><td style="padding:30px 44px 0">${emailButton(link, t.button)}</td></tr>
+<tr><td style="padding:36px 44px 10px;font-family:${sans};font-size:13px;line-height:20px;color:#4F6577">${t.or}</td></tr>
 <tr><td style="padding:0 44px">
-  <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border:1px solid #D6D3CC;background:#FFFDF9;padding:14px 22px;font-family:${serif};font-size:30px;letter-spacing:.32em;color:#354D73">${code}</td></tr></table>
+  <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td bgcolor="#FFFDF9" style="border:1px solid #D6D3CC;background:#FFFDF9;padding:14px 22px;font-family:${serif};font-size:30px;line-height:36px;letter-spacing:.32em;color:#354D73">${code}</td></tr></table>
 </td></tr>
-<tr><td style="padding:36px 44px 40px">
-  <div style="border-top:1px solid #D6D3CC;padding-top:18px;font-family:${sans};font-size:12px;line-height:1.7;color:#7A8794">${t.valid}<br>${t.ignore}</div>
-</td></tr>
-</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px"><tr><td style="padding:18px 44px 0;font-family:${sans};font-size:11px;line-height:1.6;color:#8B95A0">Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr></table>
+<tr><td style="padding:36px 44px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td style="border-top:1px solid #D6D3CC;font-size:0;line-height:0">&nbsp;</td></tr></table></td></tr>
+<tr><td style="padding:18px 44px 40px;font-family:${sans};font-size:12px;line-height:20px;color:#7A8794">${t.valid}<br>${t.ignore}</td></tr>`;
+  const html = `<!doctype html><html>${EMAIL_HEAD}
+<body style="margin:0;padding:0;background:#EFEAE1">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#EFEAE1" style="background:#EFEAE1;border-collapse:collapse"><tr><td align="center" style="padding:48px 16px">
+${emailColumn(520, card, 'background:#F7F4EE;border-top:3px solid #9C7A3A')}
+${emailColumn(520, `<tr><td style="padding:18px 44px 0;font-family:${sans};font-size:11px;line-height:18px;color:#8B95A0">Caldrew, S.A. · Rua Castilho, 32 - 4, 1250-070 Lisboa</td></tr>`)}
 </td></tr></table></body></html>`;
   return { from: env.PRESS_MAIL_FROM, fromName: 'Caldrew', replyTo: 'enquiries@caldrew.com', to, subject: t.subject, text, html };
 }
