@@ -10,7 +10,7 @@ const pt = lang === 'pt';
 const t = pt
   ? {
       reviewed: 'Analisadas', live: 'Ativas', nda: 'Chegaram a NDA', analysis: 'Em análise ou além', offer: 'Em fase de oferta',
-      funnel: 'Pipeline por fase', reached: 'chegaram', liveNow: 'ativas',
+      funnel: 'Pipeline por fase', reached: 'chegaram', reachedOne: 'chegou', liveNow: 'ativas', liveOne: 'ativa',
       decisions: 'Aguardam decisão dos sócios', waiting: 'há {n} d',
       tabLive: 'Ativas', tabClosed: 'Encerradas',
       search: 'Pesquisar', searchPh: 'Empresa, setor, pessoa…', all: 'Todas', stage: 'Fase', source: 'Origem', ball: 'Do lado de',
@@ -27,7 +27,7 @@ const t = pt
     }
   : {
       reviewed: 'Reviewed', live: 'Live', nda: 'Reached NDA', analysis: 'In analysis or beyond', offer: 'At offer stage',
-      funnel: 'Pipeline by stage', reached: 'reached', liveNow: 'live',
+      funnel: 'Pipeline by stage', reached: 'reached', reachedOne: 'reached', liveNow: 'live', liveOne: 'live',
       decisions: 'Waiting on a partner decision', waiting: '{n}d waiting',
       tabLive: 'Live', tabClosed: 'Closed',
       search: 'Search', searchPh: 'Company, sector, person…', all: 'All', stage: 'Stage', source: 'Source', ball: 'Ball with',
@@ -42,6 +42,23 @@ const t = pt
       showing: 'Showing {n} of {total}', none: 'No information available yet.', noMatch: 'Nothing matches these filters.',
       updated: 'Last updated {date}', days: '{n}d', today: 'today',
     };
+// Fixed values from the sheet's dropdowns (Lists tab), shown in Portuguese on the PT page.
+// Free text (where it stands, next step, notes, activity) is shown as written.
+const vals = pt
+  ? {
+      '1. Screened': '1. Triagem', '2. First contact': '2. Primeiro contacto', '3. Under NDA': '3. Com NDA',
+      '4. In analysis': '4. Em análise', '5. NBO in preparation': '5. NBO em preparação', '6. NBO submitted': '6. NBO apresentada',
+      '7. Due diligence / exclusivity': '7. Due diligence / exclusividade', '8. Signing & closing': '8. Assinatura e fecho',
+      Active: 'Ativa', 'Decision pending': 'Decisão pendente', 'On hold': 'Em pausa', Declined: 'Recusada', 'Not pursued': 'Não prosseguida',
+      'Adviser / intermediary': 'Assessor / intermediário', "Partners' network": 'Rede dos sócios', 'Owner approach': 'Abordagem ao proprietário',
+      'Caldrew (partner decision)': 'Caldrew (decisão dos sócios)', Counterparty: 'Contraparte',
+      'Below EUR 1M EBITDA': 'EBITDA abaixo de 1 M€', 'No contracted recurring revenue': 'Sem receita recorrente contratada',
+      'Real estate / hotels': 'Imobiliário / hotelaria', 'Early-stage / minority round': 'Fase inicial / ronda minoritária',
+      'Distressed / balance sheet': 'Dificuldades financeiras / balanço', 'Outside thesis / mandate': 'Fora da tese / mandato',
+      'Not recorded': 'Não registado', High: 'Alta', Medium: 'Média', Low: 'Baixa',
+      'Caldrew analysis': 'Análise Caldrew', 'Received by email': 'Recebido por email',
+    }
+  : {};
 ---
 <div class="cd-df" data-dealflow>
   <div class="cd-df-kpis" data-kpis></div>
@@ -68,7 +85,7 @@ const t = pt
   <p class="cd-st-empty" data-empty hidden></p>
 </div>
 <script is:inline id="reserved-data" type="application/json">null</script>
-<script is:inline type="application/json" id="dealflow-i18n" set:html={JSON.stringify({ t, lang })}></script>
+<script is:inline type="application/json" id="dealflow-i18n" set:html={JSON.stringify({ t, lang, vals })}></script>
 <script is:inline>
   (function () {
     var root = document.querySelector('[data-dealflow]');
@@ -85,6 +102,13 @@ const t = pt
       return;
     }
 
+    // ---------- language ----------
+    var tv = function (v) { return (cfg.vals && cfg.vals[v]) || v; };
+    var MONTHS = { Jan: 'jan', Feb: 'fev', Mar: 'mar', Apr: 'abr', May: 'mai', Jun: 'jun', Jul: 'jul', Aug: 'ago', Sep: 'set', Oct: 'out', Nov: 'nov', Dec: 'dez' };
+    // "25-Aug-26" -> "25-ago-26"; numbers with a decimal comma on the Portuguese page.
+    var tdate = function (s) { return cfg.lang === 'pt' ? String(s).replace(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g, function (m) { return MONTHS[m]; }) : s; };
+    var tnum = function (s) { return cfg.lang === 'pt' && /^-?\d+(\.\d+)?$/.test(String(s)) ? String(s).replace('.', ',') : s; };
+
     // ---------- data ----------
     var C = data.columns;
     var col = function (name) { return C.indexOf(name); };
@@ -94,11 +118,12 @@ const t = pt
       var n = parseInt(get(r, 'Stage #') || stage, 10) || 0;
       var status = get(r, 'Status');
       return {
-        row: r, id: get(r, 'ID'), name: get(r, 'Opportunity'), stage: stage, n: n, status: status,
+        row: r, id: get(r, 'ID'), name: get(r, 'Opportunity'), stage: tv(stage), n: n, status: tv(status),
         live: !/^(declined|not pursued)$/i.test(status),
-        ball: get(r, 'Ball with'), next: get(r, 'Next step'), source: get(r, 'Source channel'),
-        ebitda: get(r, 'EBITDA (EUR M)'), days: parseInt(get(r, 'Days since update'), 10),
-        last: get(r, 'Last update'), reason: get(r, 'Reason passed'),
+        us: /partner decision/i.test(get(r, 'Ball with')),
+        ball: tv(get(r, 'Ball with')), next: get(r, 'Next step'), source: tv(get(r, 'Source channel')),
+        ebitda: tnum(get(r, 'EBITDA (EUR M)')), days: parseInt(get(r, 'Days since update'), 10),
+        last: tdate(get(r, 'Last update')), reason: tv(get(r, 'Reason passed')),
         search: r.cells.join(' ').toLowerCase(),
       };
     });
@@ -111,7 +136,7 @@ const t = pt
     deals.forEach(function (d) { (docsBy[d.id] || []).forEach(function (f) { d.search += ' ' + f.name.toLowerCase(); }); });
     var lists = extra.lists || { columns: [], rows: [] };
     var xcell = function (tbl, row, name) { var i = tbl.columns.indexOf(name); return i < 0 ? '' : String(row.cells[i] || '').trim(); };
-    var stages = lists.rows.map(function (r) { return xcell(lists, r, 'Stage'); }).filter(Boolean);
+    var stages = lists.rows.map(function (r) { return tv(xcell(lists, r, 'Stage')); }).filter(Boolean);
     if (!stages.length) {
       var seen = {};
       deals.forEach(function (d) { if (d.stage) seen[d.stage] = d.n; });
@@ -147,12 +172,12 @@ const t = pt
       bar.style.width = (deals.length ? Math.max(reached ? 2 : 0, Math.round((reached / deals.length) * 100)) : 0) + '%';
       track.appendChild(bar);
       line.appendChild(track);
-      line.appendChild(el('div', 'cd-df-fl-n', reached + ' ' + t.reached + (liveHere ? ' · ' + liveHere + ' ' + t.liveNow : '')));
+      line.appendChild(el('div', 'cd-df-fl-n', reached + ' ' + (reached === 1 ? t.reachedOne : t.reached) + (liveHere ? ' · ' + liveHere + ' ' + (liveHere === 1 ? t.liveOne : t.liveNow) : '')));
       $('[data-funnel]').appendChild(line);
     });
 
     // ---------- partner decisions ----------
-    var pending = liveDeals.filter(function (d) { return /partner decision/i.test(d.ball); });
+    var pending = liveDeals.filter(function (d) { return d.us; });
     if (pending.length) {
       $('[data-decisions-wrap]').hidden = false;
       pending.sort(function (a, b) { return b.n - a.n; }).forEach(function (d) {
@@ -246,7 +271,7 @@ const t = pt
         var ol = el('ol', 'cd-st-timeline');
         events.forEach(function (a, i) {
           var li = el('li', i === events.length - 1 ? 'is-latest' : '');
-          li.appendChild(el('span', 'cd-df-date', xcell(activity, a, 'Date')));
+          li.appendChild(el('span', 'cd-df-date', tdate(xcell(activity, a, 'Date'))));
           linkify(li, xcell(activity, a, 'Event'));
           ol.appendChild(li);
         });
@@ -278,7 +303,7 @@ const t = pt
           if (many) {
             box.open = docs.length <= 12;
             var sum = el('summary', 'cd-df-docgroup');
-            sum.appendChild(el('span', null, g || t.general));
+            sum.appendChild(el('span', null, g ? g.split(' / ').map(tv).join(' / ') : t.general));
             sum.appendChild(el('span', 'cd-df-docn', String(byGroup[g].length)));
             box.appendChild(sum);
             wrap.appendChild(box);
@@ -306,8 +331,8 @@ const t = pt
       var right = el('div', 'cd-st-groups');
       [
         group(t.thesis, [field('', get(r, 'Thesis rationale (vs Tese de Investimento)'))]),
-        group(t.numbers, [field(t.ebitda, d.ebitda), field(t.basis, get(r, 'EBITDA basis')), field(t.revenue, get(r, 'Revenue (EUR M)')), field(t.situation, get(r, 'Situation / what is offered')), field(t.first, get(r, 'First record'))]),
-        group(t.notes, [field(t.partner, get(r, 'Partner comments')), field(t.duarte, get(r, "Duarte's notes")), field(t.priority, get(r, 'Priority'))]),
+        group(t.numbers, [field(t.ebitda, d.ebitda), field(t.basis, get(r, 'EBITDA basis')), field(t.revenue, tnum(get(r, 'Revenue (EUR M)'))), field(t.situation, get(r, 'Situation / what is offered')), field(t.first, tdate(get(r, 'First record')))]),
+        group(t.notes, [field(t.partner, get(r, 'Partner comments')), field(t.duarte, get(r, "Duarte's notes")), field(t.priority, tv(get(r, 'Priority')))]),
         group(t.sourceT, [field(t.channel, d.source), field(t.introduced, get(r, 'Introduced by')), field(t.contacts, get(r, 'Key contacts'))]),
         group(t.facts, [field('', get(r, 'Key facts'))]),
       ].forEach(function (g) { if (g) right.appendChild(g); });
@@ -361,7 +386,7 @@ const t = pt
       var stageCell = function () { var td = el('td'); td.appendChild(dots(d.n)); td.appendChild(el('span', 'cd-df-stage', d.stage.replace(/^\d+\.\s*/, ''))); return td; };
       if (tab === 'live') {
         tr.appendChild(stageCell());
-        var ball = el('td', /partner decision/i.test(d.ball) ? 'cd-df-us' : '', d.ball.replace(/\//g, '/​'));
+        var ball = el('td', d.us ? 'cd-df-us' : '', d.ball.replace(/\//g, '/​'));
         tr.appendChild(ball);
         tr.appendChild(el('td', 'cd-df-next', d.next));
         tr.appendChild(el('td', 'is-num', empty(d.ebitda) ? '' : d.ebitda));

@@ -26,5 +26,18 @@ import SheetTable from '../../../components/SheetTable.astro';
     lists={['Entities held']}
     footer={['Net income, all yrs (EUR)', 'Basis', 'Note']}
     hide={['#', 'Relationship type']}
+    labels={{
+      'Owner / decision unit': 'Investidor / centro de decisão',
+      'First contact': 'Primeiro contacto',
+      Stage: 'Ponto de situação',
+      'Family or principal': 'Família ou responsável',
+      'Key people': 'Pessoas-chave',
+      'Headline assets': 'Principais ativos',
+      'Entities held': 'Entidades detidas',
+      'Net income, all yrs (EUR)': 'Resultado líquido, todos os anos (EUR)',
+      Basis: 'Base',
+      Note: 'Nota',
+    }}
+    values={{ disclosed: 'divulgado', inferred: 'inferido', verified: 'verificado', 'direct contact': 'contacto direto' }}
   />
 </ReservedPage>
