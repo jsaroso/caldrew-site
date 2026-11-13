@@ -148,6 +148,23 @@ uploaded.
 - The script needs read-only Drive access: `scripts/apps-script/appsscript.json` is its manifest
   (Project Settings > Show "appsscript.json" manifest file in editor).
 
+### Portuguese pages: translated notes
+
+The sheets are written in English. On `/pt/reserved/...` the column names and dropdown values are
+translated in the page code (`SheetTable.astro`, `DealflowBoard.astro`), and the notes the team
+writes (where it stands, next step, activity, comments, the Fundraising stage log...) are
+translated by Claude (`worker/translate.js`). Which columns: `translate` in `worker/sync.js`.
+
+- Line by line, each line once: translations are kept in KV (`tr:<dataset>:pt`) and only new or
+  changed lines are sent. They are made right after each sheet sync and by a cron every 10 minutes.
+- Names, initials, figures, dates and deal shorthand (NBO, IM, EBITDA...) are kept as written.
+  A line that cannot be translated shows in English and is not retried.
+- Needs the Worker secret `ANTHROPIC_API_KEY` on `caldrew-site` (Cloudflare dashboard: Workers &
+  Pages > caldrew-site > Settings > Variables and Secrets). Without it the pages show the English.
+  Staging (`caldrew-site-staging`, same secret name) runs the 10-minute translation too and writes
+  to the same store, so whatever it translates is reused by the live site.
+- Model: Claude Opus 5.5, with Anthropic's server-side fallback if a request is declined.
+
 ### Sending the sign-in emails
 
 Reserved-area sign-in emails are sent through **Cloudflare Email Sending** (Workers Paid plan) from `noreply@notify.caldrew.com`,

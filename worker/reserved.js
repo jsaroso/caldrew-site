@@ -24,6 +24,7 @@ import STAGING_USERS from '../staging-users.json';
 import { sendMail, LOGO_CID, EMAIL_HEAD, emailColumn, emailButton } from './mail.js';
 import { DATASETS, getData } from './sync.js';
 import { getDocs, serveDoc } from './docs.js';
+import { translated } from './translate.js';
 
 export const SECTIONS = ['press', 'fundraising', 'dealflow'];
 const SESSION = 'caldrew_reserved';
@@ -95,6 +96,7 @@ export async function handleReserved(request, env, url) {
   }
   let data = section && DATASETS[section] ? await getData(env, section) : null;
   if (data && DATASETS[section].docs) data = { ...data, docs: await getDocs(env, section) };
+  if (data && pt) data = await translated(env, section, data);
   return page(env, url, section ? `${base}/${section}` : base, 200, session.e, sections, data);
 }
 

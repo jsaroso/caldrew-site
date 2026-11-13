@@ -17,6 +17,8 @@ export const DATASETS = {
     title: 'Fundraising',
     // Fields whose changes the team hears about, by sheet header.
     watch: ['Stage', 'First contact'],
+    // Columns written in English and shown in Portuguese on /pt/reserved (worker/translate.js).
+    translate: { main: ['Stage', 'Headline assets', 'Note'] },
   },
   dealflow: {
     title: 'Dealflow',
@@ -27,6 +29,11 @@ export const DATASETS = {
     secret: 'SYNC_SECRET_DEALFLOW',
     // Deal documents from Google Drive (worker/docs.js).
     docs: true,
+    translate: {
+      main: ['Sector / activity', 'Situation / what is offered', 'EBITDA basis', 'Where it stands', 'Next step',
+        'Thesis rationale (vs Tese de Investimento)', 'Key facts', 'Partner comments', "Duarte's notes"],
+      extra: { activity: ['Event'], questions: ['Question'] },
+    },
   },
 };
 

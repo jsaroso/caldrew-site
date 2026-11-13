@@ -37,7 +37,8 @@
   // Synced data for the reserved area (the Google Sheet pushes here) and its change log.
   "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "aa100a6b76a64eb1b2557b5ad73a7224" }],
   // Weekly summary of changes, Mondays 07:00 UTC (07:00 Lisbon in winter, 08:00 in summer).
-  "triggers": { "crons": ["0 7 * * 1"] },
+  // Also every 10 minutes: Portuguese translations of new notes (worker/translate.js).
+  "triggers": { "crons": ["0 7 * * 1", "*/10 * * * *"] },
   // Secrets (not in this file): PRESS_SESSION_SECRET, SYNC_SECRET. See README.
   "observability": { "enabled": true },
   // caldrew.com and www.caldrew.com are Workers Custom Domains: Cloudflare manages their DNS
@@ -69,11 +70,11 @@
         { "name": "LOGIN_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
         { "name": "MAIL_LIMITER", "namespace_id": "1004", "simple": { "limit": 3, "period": 60 } }
       ],
-      // Reads the live reserved-area data so reviews use real content. Staging cannot write to it:
-      // it has no SYNC_SECRET (uploads are refused) and no cron (no digests).
+      // Reads the live reserved-area data so reviews use real content. Staging cannot change it: it
+      // has no SYNC_SECRET (uploads are refused). It only adds Portuguese translations (cron below).
       "kv_namespaces": [{ "binding": "RESERVED_KV", "id": "aa100a6b76a64eb1b2557b5ad73a7224" }],
-      // No digest from staging, so the team only hears from production.
-      "triggers": { "crons": [] },
+      // No weekly summaries from staging; it does translate notes (same KV store as the live site).
+      "triggers": { "crons": ["*/10 * * * *"] },
       "routes": [{ "pattern": "next.caldrew.com", "custom_domain": true }]
     }
   }

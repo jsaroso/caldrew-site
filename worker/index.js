@@ -11,9 +11,10 @@ import { EmailMessage } from 'cloudflare:email';
 import { isReserved, handleReserved, withReservedBar, stagingGate } from './reserved.js';
 import { handleSync, sendDigests } from './sync.js';
 import { handleDocs } from './docs.js';
+import { translatePending, translateAll } from './translate.js';
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     // caldrew.com -> www.caldrew.com (the canonical address). The workers.dev address only
@@ -32,7 +33,12 @@ export default {
     }
 
     const sync = url.pathname.match(/^\/api\/sync\/([a-z]+)$/);
-    if (sync) return handleSync(request, env, sync[1]);
+    if (sync) {
+      const res = await handleSync(request, env, sync[1]);
+      // New notes get their Portuguese right away (the cron finishes anything left).
+      if (res.ok) ctx.waitUntil(translatePending(env, sync[1]));
+      return res;
+    }
     const docs = url.pathname.match(/^\/api\/docs\/([a-z]+)(?:\/([\w-]+))?$/);
     if (docs) return handleDocs(request, env, docs[1], docs[2]);
 
@@ -43,7 +49,8 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(sendDigests(env));
+    // Mondays 07:00 UTC: weekly summaries. Every 10 minutes: Portuguese for new notes.
+    ctx.waitUntil(event.cron === '0 7 * * 1' ? sendDigests(env) : translateAll(env));
   },
 };
 
